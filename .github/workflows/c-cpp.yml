@@ -25,18 +25,18 @@ jobs:
           make clean
           make
 
+      - name: Linux upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: acftool-linux
+          path: acftool
+
       - name: Windows build
         run: |
           make clean
           make CC=x86_64-w64-mingw32-gcc \
                TARGET=acftool.exe \
                LDFLAGS="-static"
-
-      - name: Linux upload
-        uses: actions/upload-artifact@v4
-        with:
-          name: acftool-linux
-          path: acftool
 
       - name: Windows upload
         uses: actions/upload-artifact@v4
