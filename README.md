@@ -48,7 +48,7 @@ Dependencies: `gcc`, `make` (optional)
 2. Go to the repository directory and build the project. You can either run `gcc -O3 -Wall -Wextra -Werror -o acfdump` or `make` if you have it installed
 
 ## Credits
-* Tool by [SombrAbsol](https://github.com/SombrAbsol)
+* acftool by [SombrAbsol](https://github.com/SombrAbsol)
 * acfdump and ACF documentation by [Barubary](https://github.com/Barubary) (the original acfdump is available on [his website](http://www.propl.nl/javaprogs/acfdump.jar))
 
 ## License
