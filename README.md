@@ -44,4 +44,4 @@ To build an ACF file, run `acftool -b <folder>`. Please note that the target fol
 
 ## Credits
 * Tool by [SombrAbsol](https://github.com/SombrAbsol)
-* acfdump and ACF documentation by [Barubary](https://github.com/Barubary) (available on [his website](http://www.propl.nl/javaprogs/acfdump.jar))
+* acfdump and ACF documentation by [Barubary](https://github.com/Barubary) (the original acfdump is available on [his website](http://www.propl.nl/javaprogs/acfdump.jar))
