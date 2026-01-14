@@ -1,4 +1,8 @@
 # acftool
+<a href="https://github.com/SombrAbsol/acftool/actions/workflows/build-linux.yml"><img src="https://github.com/SombrAbsol/acftool/actions/workflows/build-linux.yml/badge.svg" alt="Linux Nightly"></a>
+<a href="https://github.com/SombrAbsol/acftool/actions/workflows/build-windows.yml"><img src="https://github.com/SombrAbsol/acftool/actions/workflows/build-windows.yml/badge.svg" alt="Windows Nightly"></a>
+<a href="https://opensource.org/license/mit"><img src="https://img.shields.io/badge/license-MIT-blue" alt="License: MIT (Expat)"></a>
+
 ACF unpacking and building tool. Based on [a fork of acfdump](https://github.com/SombrAbsol/acfdump), an ACF unpacking tool originally created by Barubary in Java and ported here to C.
 
 ACF files are used in *Pokémon Ranger: Guardian Signs* data. This tool allows you to extract and decompress the files they contain, as well as rebuild ACF files and create your own. You can [download the latest nightly](#download) or [build the program from source](#building).
@@ -11,7 +15,7 @@ Please note that the ACF building process is currently insufficient. File extrac
 |         | Linux | Windows |
 | ------- | ----- | ------- |
 | Release |       |         |
-| Nightly | [Download](https://nightly.link/SombrAbsol/acftool/workflows/c-cpp/main/acftool-linux.zip) | [Download](https://nightly.link/SombrAbsol/acftool/workflows/c-cpp/main/acftool-windows.zip) |
+| Nightly | [Download](https://nightly.link/SombrAbsol/acftool/workflows/build-linux/main/acftool-linux.zip) | [Download](https://nightly.link/SombrAbsol/acftool/workflows/build-windows/main/acftool-windows.zip) |
 
 ## Usage
 ### Dumping the ROM
