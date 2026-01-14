@@ -1,0 +1,43 @@
+name: Windows Nightly
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+permissions:
+  contents: read
+
+env:
+  TARGET: acftool
+
+jobs:
+  build:
+    name: Build Windows nightly
+    runs-on: windows-2025
+    timeout-minutes: 15
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+    
+      - name: Install toolchain
+        run: |
+          choco install -y mingw make
+    
+      - name: Build Windows binary
+        shell: bash
+        run: |
+          set -euo pipefail
+          make \
+            CC=x86_64-w64-mingw32-gcc \
+            TARGET=${{ env.TARGET }}.exe \
+            LDFLAGS="-static"
+    
+      - name: Upload Windows build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.TARGET }}-windows
+          path: ${{ env.TARGET }}.exe
+          if-no-files-found: error
