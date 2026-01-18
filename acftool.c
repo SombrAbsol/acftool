@@ -15,6 +15,11 @@
 #include <unistd.h>
 #endif
 
+// padding
+size_t pad_size(size_t size, size_t align) {
+    return (size + align - 1) & ~(align - 1);
+}
+
 // lz10 decompression
 uint8_t *lz10_decompress(const uint8_t *src, size_t srcSize, size_t *outSize) {
     if (!src || srcSize < 4 || !outSize) return NULL; // invalid input
@@ -425,62 +430,86 @@ int build_acf(const char *folder) {
     fwrite(headerBuf, 1, hdr.headerSize, out);
     free(headerBuf);
 
-    // write empty FAT table
+    // write empty fat table
     FATEntry *fat = calloc(numFiles, sizeof(FATEntry));
     fwrite(fat, sizeof(FATEntry), numFiles, out);
 
     // write files
     size_t offset = 0;
+
     for (size_t i = 0; i < numFiles; i++) {
+
         size_t sz = 0;
         uint8_t *buf = read_file(files[i], &sz);
-        if (!buf) { fprintf(stderr, "Skipping %s\n", files[i]); fat[i].relativeOffset = 0xFFFFFFFFu; continue; }
 
-        if (compressFlags[i]) {
+        if (!buf) {
+            fprintf(stderr, "Skipping %s\n", files[i]);
+            fat[i].relativeOffset = 0xFFFFFFFFu;
+            fat[i].inputSize = 0;
+            fat[i].outputSize = 0;
+            continue;
+        }
+
+        int doCompress = compressFlags[i];
+        if (i == 0)
+            doCompress = 0; // fat[0] is always raw
+
+        fat[i].relativeOffset = (uint32_t)offset;
+
+        if (doCompress) {
+
             size_t compSize = 0;
             uint8_t *comp = lz10_compress(buf, sz, &compSize);
-            if (comp) {
-                fat[i].relativeOffset = (uint32_t)offset;
-                fat[i].inputSize = (uint32_t)compSize;
-                fat[i].outputSize = (uint32_t)sz;
-                fwrite(comp, 1, compSize, out);
-                offset += compSize;
-                free(comp);
-            } else {
-                fat[i].relativeOffset = (uint32_t)offset;
-                fat[i].inputSize = fat[i].outputSize;
-                fat[i].outputSize = (uint32_t)sz;
-                fwrite(buf, 1, sz, out);
-                offset += sz;
-            }
-        } else {
-            fat[i].relativeOffset = (uint32_t)offset;
-            fat[i].inputSize = fat[i].outputSize;
-            fat[i].outputSize = (uint32_t)sz;
+
+            size_t paddedComp = pad_size(compSize, 4);
+
+            fwrite(comp, 1, compSize, out);
+
+            // padding
+            for (size_t p = compSize; p < paddedComp; p++)
+                fputc(0x00, out);
+
+            fat[i].inputSize = (uint32_t)paddedComp;
+            fat[i].outputSize = (uint32_t)pad_size(sz, 4);
+
+            offset += paddedComp;
+        }
+
+        if (!doCompress) {
+            size_t padded = pad_size(sz, 4);
+
+            fat[i].outputSize = (uint32_t)padded;
+            fat[i].inputSize  = 0; // RAW OBLIGATOIRE
+
             fwrite(buf, 1, sz, out);
-            offset += sz;
+
+            // padding 0x00
+            for (size_t p = sz; p < padded; p++)
+                fputc(0x00, out);
+
+            offset += padded;
         }
 
         free(buf);
 
         if ((i & 31) == 31 || i == numFiles - 1) {
-            printf("\r  packed %zu/%zu", i+1, numFiles);
+            printf("\r  packed %zu/%zu", i + 1, numFiles);
             fflush(stdout);
         }
     }
 
     printf("\n");
 
-    // update header and FAT table
+    // update header and fat table
     hdr.dataStart = (uint32_t)(hdr.headerSize + numFiles * sizeof(FATEntry));
     headerBuf = calloc(1, hdr.headerSize);
     memcpy(headerBuf, &hdr, sizeof(hdr));
     fseek(out, 0, SEEK_SET);
-    fwrite(headerBuf, 1, hdr.headerSize, out);
-    free(headerBuf);
+    fwrite(&hdr, 1, sizeof(hdr), out);
 
-    fseek(out, (long)hdr.headerSize, SEEK_SET);
+    fseek(out, hdr.headerSize, SEEK_SET);
     fwrite(fat, sizeof(FATEntry), numFiles, out);
+
     fclose(out);
 
     // free memory

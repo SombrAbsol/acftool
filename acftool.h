@@ -32,6 +32,9 @@ typedef struct {
     uint32_t inputSize;
 } FATEntry;
 
+// padding
+size_t pad_size(size_t size, size_t align);
+
 // lz10 decompression
 uint8_t *lz10_decompress(const uint8_t *src, size_t srcSize, size_t *outSize);
 
