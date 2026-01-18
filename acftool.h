@@ -21,8 +21,8 @@ typedef struct {
     uint32_t headerSize; // usually 0x20
     uint32_t dataStart;
     uint32_t numFiles;
-    uint32_t unknown1;
-    uint32_t unknown2;
+    uint32_t unknown1;   // always 1?
+    uint32_t unknown2;   // always 0x32?
     uint32_t padding[2];
 } ACFHeader;
 
