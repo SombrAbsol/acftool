@@ -74,8 +74,10 @@ uint8_t *lz10_compress(const uint8_t *src, size_t srcSize, size_t *outSize) {
     if (!src || !srcSize || !outSize) return NULL;
 
     size_t max = srcSize + srcSize/8 + 32; // rough max size
-    uint8_t *out = malloc(max), *dp = out+4;
+    uint8_t *out = malloc(max);
     if (!out) return NULL;
+
+    uint8_t *dp = out + 4;
 
     // write header
     out[0] = 0x10;
@@ -328,30 +330,30 @@ int extract_acf(const char *path) {
 
 // process all .acf files in a directory
 #ifdef _WIN32
-void process_directory(const char *folder) {
+void process_directory(const char *directory) {
     char searchPath[512];
-    snprintf(searchPath, sizeof(searchPath), "%s\\*.acf", folder);
+    snprintf(searchPath, sizeof(searchPath), "%s\\*.acf", directory);
 
     struct _finddata_t file;
     intptr_t hFile = _findfirst(searchPath, &file);
     if (hFile == -1L) {
-        printf("No .acf files found in %s\n", folder);
+        printf("No .acf files found in %s\n", directory);
         return;
     }
 
     do {
         char fullPath[512];
-        snprintf(fullPath, sizeof(fullPath), "%s\\%s", folder, file.name);
+        snprintf(fullPath, sizeof(fullPath), "%s\\%s", directory, file.name);
         extract_acf(fullPath);
     } while (_findnext(hFile, &file) == 0);
 
     _findclose(hFile);
 }
 #else
-void process_directory(const char *folder) {
-    DIR *dir = opendir(folder);
+void process_directory(const char *directory) {
+    DIR *dir = opendir(directory);
     if (!dir) {
-        printf("Can't open directory %s\n", folder);
+        printf("Can't open directory %s\n", directory);
         return;
     }
 
@@ -361,7 +363,7 @@ void process_directory(const char *folder) {
         const char *ext = strrchr(name, '.');
         if (ext && strcasecmp(ext, ".acf") == 0) {
             char fullPath[512];
-            snprintf(fullPath, sizeof(fullPath), "%s/%s", folder, name);
+            snprintf(fullPath, sizeof(fullPath), "%s/%s", directory, name);
             extract_acf(fullPath);
         }
     }
@@ -370,13 +372,13 @@ void process_directory(const char *folder) {
 }
 #endif
 
-// build an acf archive from a folder
-int build_acf(const char *folder) {
-    if (!folder) return 1;
+// build an acf archive from a directory
+int build_acf(const char *directory) {
+    if (!directory) return 1;
 
     // read metadata from filelist.txt
     char metafile[512];
-    snprintf(metafile, sizeof(metafile), "%s/filelist.txt", folder);
+    snprintf(metafile, sizeof(metafile), "%s/filelist.txt", directory);
     FILE *mf = fopen(metafile, "r");
     char **files = NULL;
     uint32_t *compressFlags = NULL;
@@ -390,19 +392,47 @@ int build_acf(const char *folder) {
             char fname[512];
             unsigned int comp;
             if (sscanf(line, "%s %u", fname, &comp) == 2) {
-                files = realloc(files, (numFiles+1) * sizeof(char*));
-                compressFlags = realloc(compressFlags, (numFiles+1) * sizeof(uint32_t));
+                char **tmpFiles = realloc(files, (numFiles+1) * sizeof(char*));
+                if (!tmpFiles) {
+                    for (size_t i = 0; i < numFiles; i++) free(files[i]);
+                    free(files);
+                    free(compressFlags);
+                    fclose(mf);
+                    fprintf(stderr, "Memory allocation failed\n");
+                    return 1;
+                }
+                files = tmpFiles;
 
-                size_t pathlen = strlen(folder) + strlen(fname) + 2;
+                uint32_t *tmpFlags = realloc(compressFlags, (numFiles+1) * sizeof(uint32_t));
+                if (!tmpFlags) {
+                    for (size_t i = 0; i < numFiles; i++) free(files[i]);
+                    free(files);
+                    free(compressFlags);
+                    fclose(mf);
+                    fprintf(stderr, "Memory allocation failed\n");
+                    return 1;
+                }
+                compressFlags = tmpFlags;
+
+                size_t pathlen = strlen(directory) + strlen(fname) + 2;
                 files[numFiles] = malloc(pathlen);
-                snprintf(files[numFiles], pathlen, "%s/%s", folder, fname);
+                if (!files[numFiles]) {
+                    for (size_t i = 0; i < numFiles; i++) free(files[i]);
+                    free(files);
+                    free(compressFlags);
+                    fclose(mf);
+                    fprintf(stderr, "Memory allocation failed\n");
+                    return 1;
+                }
+
+                snprintf(files[numFiles], pathlen, "%s/%s", directory, fname);
                 compressFlags[numFiles] = comp;
                 numFiles++;
             }
         }
         fclose(mf);
     } else {
-        fprintf(stderr, "Metadata file not found in %s\n", folder);
+        fprintf(stderr, "Metadata file not found in %s\n", directory);
         return 1;
     }
 
@@ -410,9 +440,15 @@ int build_acf(const char *folder) {
 
     // create output acf file
     char outname[512];
-    snprintf(outname, sizeof(outname), "%s.acf", folder);
+    snprintf(outname, sizeof(outname), "%s.acf", directory);
     FILE *out = fopen(outname, "wb");
-    if (!out) { fprintf(stderr, "Cannot create %s\n", outname); return 1; }
+    if (!out) {
+        fprintf(stderr, "Cannot create %s\n", outname);
+        for (size_t i = 0; i < numFiles; i++) free(files[i]);
+        free(files);
+        free(compressFlags);
+        return 1;
+    }
 
     // initialize header
     ACFHeader hdr;
@@ -426,12 +462,30 @@ int build_acf(const char *folder) {
     hdr.padding[0] = hdr.padding[1] = 0;
 
     uint8_t *headerBuf = calloc(1, hdr.headerSize);
+    if (!headerBuf) {
+        fprintf(stderr, "Memory allocation failed\n");
+        fclose(out);
+        for (size_t i = 0; i < numFiles; i++) free(files[i]);
+        free(files);
+        free(compressFlags);
+        return 1;
+    }
+
     memcpy(headerBuf, &hdr, sizeof(hdr));
     fwrite(headerBuf, 1, hdr.headerSize, out);
     free(headerBuf);
 
     // write empty fat table
     FATEntry *fat = calloc(numFiles, sizeof(FATEntry));
+    if (!fat) {
+        fprintf(stderr, "Memory allocation failed\n");
+        fclose(out);
+        for (size_t i = 0; i < numFiles; i++) free(files[i]);
+        free(files);
+        free(compressFlags);
+        return 1;
+    }
+
     fwrite(fat, sizeof(FATEntry), numFiles, out);
 
     // write files
@@ -451,10 +505,10 @@ int build_acf(const char *folder) {
         }
 
         int doCompress = compressFlags[i];
-        if (i == 0)
+        if (i == 0) {
             doCompress = 0; // fat[0] is always raw
-
-        fat[i].relativeOffset = (uint32_t)offset;
+        }
+            fat[i].relativeOffset = (uint32_t)offset;
 
         if (doCompress) {
 
@@ -479,11 +533,11 @@ int build_acf(const char *folder) {
             size_t padded = pad_size(sz, 4);
 
             fat[i].outputSize = (uint32_t)padded;
-            fat[i].inputSize  = 0; // RAW OBLIGATOIRE
+            fat[i].inputSize  = 0;
 
             fwrite(buf, 1, sz, out);
 
-            // padding 0x00
+            // padding
             for (size_t p = sz; p < padded; p++)
                 fputc(0x00, out);
 
@@ -503,9 +557,20 @@ int build_acf(const char *folder) {
     // update header and fat table
     hdr.dataStart = (uint32_t)(hdr.headerSize + numFiles * sizeof(FATEntry));
     headerBuf = calloc(1, hdr.headerSize);
+    if (!headerBuf) {
+        fprintf(stderr, "Memory allocation failed\n");
+        fclose(out);
+        free(fat);
+        for (size_t i = 0; i < numFiles; i++) free(files[i]);
+        free(files);
+        free(compressFlags);
+        return 1;
+    }
+
     memcpy(headerBuf, &hdr, sizeof(hdr));
     fseek(out, 0, SEEK_SET);
     fwrite(&hdr, 1, sizeof(hdr), out);
+    free(headerBuf);
 
     fseek(out, hdr.headerSize, SEEK_SET);
     fwrite(fat, sizeof(FATEntry), numFiles, out);
@@ -526,37 +591,39 @@ int build_acf(const char *folder) {
 
 int main(int argc, char **argv) {
     if (argc < 3) {
+        printf("Copyright (c) 2026 SombrAbsol\n");
+        printf("acftool - ACF archive utility for Pokémon Ranger: Guardian Signs\n\n");
         printf("Usage:\n");
-        printf("  %s -d <file.acf | folder>   # extract mode\n", argv[0]);
-        printf("  %s -b <folder>              # build mode\n", argv[0]);
+        printf(" %s e <file.acf|directory>  extract mode\n", argv[0]);
+        printf(" %s b <directory>           build mode\n", argv[0]);
         return 0;
     }
 
     const char *mode = argv[1];
     const char *path = argv[2];
 
-    if (strcmp(mode, "-d") == 0) { // extract mode
+    if (strcmp(mode, "e") == 0) { // extract mode
         struct stat st;
         if (stat(path, &st) != 0) {
             fprintf(stderr, "Invalid path: %s\n", path);
             return 1;
         }
 
-        if (S_ISDIR(st.st_mode)) { // folder
-            printf("Extracting all ACFs in folder: %s\n", path);
+        if (S_ISDIR(st.st_mode)) { // directory
+            printf("Extracting all ACFs in directory: %s\n", path);
             process_directory(path);
         } else { // single file
             extract_acf(path);
         }
     }
-    else if (strcmp(mode, "-b") == 0) { // build mode
+    else if (strcmp(mode, "b") == 0) { // build mode
         struct stat st;
         if (stat(path, &st) != 0 || !S_ISDIR(st.st_mode)) {
-            fprintf(stderr, "Invalid folder for build: %s\n", path);
+            fprintf(stderr, "Invalid directory for build: %s\n", path);
             return 1;
         }
 
-        printf("Building ACF from folder: %s\n", path);
+        printf("Building ACF from directory: %s\n", path);
         build_acf(path);
     }
     else {

@@ -57,7 +57,7 @@ const char *try_get_extension(
 
 // acf operations
 int extract_acf(const char *path);
-void process_directory(const char *folder);
-int build_acf(const char *folder);
+void process_directory(const char *directory);
+int build_acf(const char *directory);
 
 #endif /* ACFDUMP_H */
