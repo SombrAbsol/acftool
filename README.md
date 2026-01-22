@@ -3,13 +3,13 @@
 <a href="https://github.com/SombrAbsol/acftool/actions/workflows/build-windows.yml"><img src="https://github.com/SombrAbsol/acftool/actions/workflows/build-windows.yml/badge.svg" alt="Windows Nightly"></a>
 <a href="https://opensource.org/license/mit"><img src="https://img.shields.io/badge/license-MIT-blue" alt="License: MIT (Expat)"></a>
 
-ACF extraction and building tool. Based on [a fork of acfdump](https://github.com/SombrAbsol/acfdump), an ACF extraction tool originally created by Barubary in Java and ported here to C.
+ACF archive utility for *Pokémon Ranger: Guardian Signs*. Based on [a fork of acfdump](https://github.com/SombrAbsol/acfdump), an ACF extraction tool originally created by Barubary in Java and ported here to C.
 
-ACF files are used in *Pokémon Ranger: Guardian Signs* data. This tool allows you to extract the files contained in ACF archives, automatically handling decompression when needed, and to rebuild ACF files. You can [download the latest nightly](#download) or [build the program from source](#building).
+ACF archives are used in *Pokémon Ranger: Guardian Signs* data. This tool allows you to extract the files contained in ACF archives, automatically handling decompression when needed, and to rebuild these archives. You can [download the latest nightly](#download) or [build the program from source](#building).
 
 For more information on the ACF format, see [the documentation](/doc/acf.md).
 
-Please note that the ACF building process is currently insufficient. File extraction works fine on original and reconstructed ACF files, but reconstructed files do not match their originals.
+Please note that the ACF building process is currently insufficient. File extraction works fine on original and reconstructed ACF archives, but reconstructed archives do not match their originals.
 
 ## Download
 |         | Linux | Windows |
@@ -23,21 +23,21 @@ You can dump your own *Pokémon Ranger: Guardian Signs* ROM from:
 * [a console from the Nintendo DS or Nintendo 3DS family](https://dumping.guide/carts/nintendo/ds) (Game Card release)
 * [a Wii U](https://wiki.hacks.guide/wiki/Wii_U:VC_Extract) (Virtual Console release)
 
-### Getting the ACF files
+### Getting the ACF archives
 1. Download, extract and launch [NDSFactory](https://github.com/Luca1991/NDSFactory/releases/latest)
 2. Open the program, load your ROM, then press the `Extract Everything` button and choose where to save your files
 3. Once the process is complete, go to the `Fat Tools` tab, fill in the first three fields with the requested files you just extracted (`fat_data.bin`, `fnt.bin` and `fat.bin`), then press the `Extract FAT Data!` button and choose where to save your files
-4. Go to your output directory. ACF files are located in the `data` directory
+4. Go to your output directory. ACF archives are located in the `data` directory
 
 ### Running acftool
-#### File extraction
-* To extract a specific ACF file, run `acftool e <file>.acf`
-* To extract every ACF files in a directory, run `acftool e <directory>`
+#### Extraction
+* To extract files from an ACF archive, run `acftool e <file.acf>`
+* To extract files from every ACF archives in a directory, run `acftool e <directory>`
 
-The output files will be located in a directory with the same name as the input ACF file.
+The output files will be located in a directory with the same name as the input ACF archive.
 
-#### ACF building
-To build an ACF file, run `acftool b <directory>`. Please note that the target directory must contain a `filelist.txt` file listing the files to be compressed and a Boolean compression value (0: do not compress; 1: compress), for example:
+#### Building
+To build an ACF archive, run `acftool b <directory>`. Please note that the target directory must contain a `filelist.txt` file listing the files to be compressed and a Boolean compression value (0: do not compress; 1: compress), for example:
 ```
 0000.RTCA 0
 0001.NCLR 1

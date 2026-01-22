@@ -328,7 +328,7 @@ int extract_acf(const char *path) {
     return 0;
 }
 
-// process all .acf files in a directory
+// process all acf archives in a directory
 #ifdef _WIN32
 void process_directory(const char *directory) {
     char searchPath[512];
@@ -337,7 +337,7 @@ void process_directory(const char *directory) {
     struct _finddata_t file;
     intptr_t hFile = _findfirst(searchPath, &file);
     if (hFile == -1L) {
-        printf("No .acf files found in %s\n", directory);
+        printf("No acf archives found in %s\n", directory);
         return;
     }
 
@@ -438,7 +438,7 @@ int build_acf(const char *directory) {
 
     if (numFiles == 0) { fprintf(stderr, "No files to pack\n"); return 1; }
 
-    // create output acf file
+    // create output acf archive
     char outname[512];
     snprintf(outname, sizeof(outname), "%s.acf", directory);
     FILE *out = fopen(outname, "wb");
