@@ -9,7 +9,7 @@ ACF archives are used in *Pokémon Ranger: Guardian Signs* data. This tool allow
 
 For more information on the ACF format, see [the documentation](/doc/acf.md).
 
-Please note that the ACF building process is currently insufficient. File extraction works fine on original and reconstructed ACF archives, but reconstructed archives do not match their originals.
+Please note that the ACF building process is currently insufficient. File extraction works fine on original and reconstructed ACF archives, while reconstructed archives work in-game but do not match their originals.
 
 ## Download
 |         | Linux | Windows |
@@ -30,13 +30,13 @@ You can dump your own *Pokémon Ranger: Guardian Signs* ROM from:
 4. Go to your output directory. ACF archives are located in the `data` directory
 
 ### Running acftool
-#### Extraction
+#### ACF Extraction
 * To extract files from an ACF archive, run `acftool e <file.acf>`
 * To extract files from every ACF archives in a directory, run `acftool e <directory>`
 
 The output files will be located in a directory with the same name as the input ACF archive.
 
-#### Building
+#### ACF Building
 To build an ACF archive, run `acftool b <directory>`. Please note that the target directory must contain a `filelist.txt` file listing the files to be compressed and a Boolean compression value (0: do not compress; 1: compress), for example:
 ```
 0000.RTCA 0
@@ -50,6 +50,12 @@ To build an ACF archive, run `acftool b <directory>`. Please note that the targe
 Dependencies: `gcc`, `make` (optional)
 1. Clone this repository by running `git clone https://github.com/SombrAbsol/acftool`, or [download the ZIP archive](https://github.com/SombrAbsol/acftool/archive/refs/heads/main.zip) and extract it
 2. Go to the repository directory and build the project. You can either run `gcc -O3 -Wall -Wextra -Werror -o acftool` or `make` if you have it installed
+
+## TODO
+* Fix LZ10 compression
+* Add ACZ support
+* Add containers (FPKD, NPCD…) support(?)
+
 
 ## Credits
 * acftool by [SombrAbsol](https://github.com/SombrAbsol)
