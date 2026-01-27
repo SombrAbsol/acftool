@@ -29,12 +29,15 @@ jobs:
           set -euo pipefail
           sudo apt update
           sudo apt install -y --no-install-recommends \
-            build-essential
+            clang \
+            make
 
       - name: Build Linux binary
         run: |
           set -euo pipefail
-          make
+          make \
+            CC="clang" \
+            TARGET="${{ env.TARGET }}"
 
       - name: Upload Linux build artifact
         uses: actions/upload-artifact@v4

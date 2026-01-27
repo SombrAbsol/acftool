@@ -1,4 +1,4 @@
-CC      := gcc
+CC := $(shell command -v clang >/dev/null 2>&1 && echo clang || echo gcc)
 CFLAGS  := -O3 -Wall -Wextra -Werror
 
 TARGET  := acftool
@@ -10,7 +10,7 @@ OBJS    := $(SRCS:.c=.o)
 all: $(TARGET)
 
 $(TARGET): $(OBJS)
-	$(CC) $(CFLAGS) -o $@ $^
+	$(CC) -o $@ $^
 
 %.o: %.c acfdump.h
 	$(CC) $(CFLAGS) -c $< -o $@

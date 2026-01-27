@@ -31,8 +31,8 @@ jobs:
         run: |
           set -euo pipefail
           make \
-            CC=x86_64-w64-mingw32-gcc \
-            TARGET=${{ env.TARGET }}.exe \
+            CC="clang --target=x86_64-w64-windows-gnu" \
+            TARGET="${{ env.TARGET }}.exe" \
             LDFLAGS="-static"
     
       - name: Upload Windows build artifact

@@ -50,9 +50,15 @@ To build an ACF archive, run `acftool b <directory>`. Please note that the targe
 ```
 
 ## Building
-Dependencies: `gcc`, `make` (optional)
+Dependencies: `clang` or `gcc`, `make` (optional, preferred)
 1. Clone this repository by running `git clone https://github.com/SombrAbsol/acftool`, or [download the ZIP archive](https://github.com/SombrAbsol/acftool/archive/refs/heads/main.zip) and extract it
-2. Go to the repository directory and build the project. You can either run `gcc -O3 -Wall -Wextra -Werror -o acftool` or `make` if you have it installed
+2. Go to the repository directory and build the project. You can run `make` if you have it installed, or one of the following commands depending on the compiler you have installed:
+```
+clang -O3 -Wall -Wextra -Werror -o acftool
+```
+```
+gcc -O3 -Wall -Wextra -Werror -o acftool
+```
 
 ## TODO
 * Fix LZ10 compression
