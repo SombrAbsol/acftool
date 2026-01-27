@@ -24,10 +24,13 @@ You can dump your own *Pokémon Ranger: Guardian Signs* ROM from:
 * [a Wii U](https://wiki.hacks.guide/wiki/Wii_U:VC_Extract) (Virtual Console release)
 
 ### Getting the ACF archives
+To extract the romFS, Windows users can use [TinkeDSi](https://github.com/R-YaTian/TinkeDSi/releases/latest), but NDSFactory can also be run on macOS and Linux:
 1. Download, extract and launch [NDSFactory](https://github.com/Luca1991/NDSFactory/releases/latest)
-2. Open the program, load your ROM, then press the `Extract Everything` button and choose where to save your files
-3. Once the process is complete, go to the `Fat Tools` tab, fill in the first three fields with the requested files you just extracted (`fat_data.bin`, `fnt.bin` and `fat.bin`), then press the `Extract FAT Data!` button and choose where to save your files
-4. Go to your output directory. ACF archives are located in the `data` directory
+2. Open the program, load your ROM, then scroll down until you see the `FAT Files Address` field. Take note or copy its value
+3. Press the `Extract Everything` button and choose where to save your files
+4. Once the process is complete, go to the `Fat Tools` tab, and fill in the first three fields with the requested files you just extracted (`fat_data.bin`, `fnt.bin` and `fat.bin`) and the fourth with the value from the previous `FAT Files Address` field
+5. Press the `Extract FAT Data!` button and choose where to save your files
+6. Go to your output directory. ACF archives are located in the `data` directory
 
 ### Running acftool
 #### ACF Extraction
