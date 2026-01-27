@@ -24,7 +24,7 @@ You can dump your own *Pokémon Ranger: Guardian Signs* ROM from:
 * [a Wii U](https://wiki.hacks.guide/wiki/Wii_U:VC_Extract) (Virtual Console release)
 
 ### Getting the ACF archives
-To extract the romFS, Windows users can use [TinkeDSi](https://github.com/R-YaTian/TinkeDSi/releases/latest), but NDSFactory can also be run on macOS and Linux:
+To get the ACF archives, Windows users can use [TinkeDSi](https://github.com/R-YaTian/TinkeDSi/releases/latest), but NDSFactory can also be run on macOS and Linux:
 1. Download, extract and launch [NDSFactory](https://github.com/Luca1991/NDSFactory/releases/latest)
 2. Open the program, load your ROM, then scroll down until you see the `FAT Files Address` field. Take note or copy its value
 3. Press the `Extract Everything` button and choose where to save your files
