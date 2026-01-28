@@ -1,6 +1,7 @@
 #pragma author SombrAbsol
 #pragma description ACF Archive (Pokémon Ranger: Guardian Signs)
 #pragma magic [ 61 63 66 00 ] @ 0x00
+#pragma loop_limit 10000
 
 import std.io;
 import type.magic;
