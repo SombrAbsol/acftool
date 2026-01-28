@@ -594,15 +594,15 @@ int main(int argc, char **argv) {
         printf("Copyright (c) 2026 SombrAbsol\n");
         printf("acftool - ACF archive utility for Pokémon Ranger: Guardian Signs\n\n");
         printf("Usage:\n");
-        printf(" %s e <file.acf|directory>  extract mode\n", argv[0]);
-        printf(" %s b <directory>           build mode\n", argv[0]);
+        printf("  %s -x|--extract <in.acf|indir>\n", argv[0]);
+        printf("  %s -b|--build   <indir>\n", argv[0]);
         return 0;
     }
 
     const char *mode = argv[1];
     const char *path = argv[2];
 
-    if (strcmp(mode, "e") == 0) { // extract mode
+    if (!strcmp(mode, "-x") || !strcmp(mode, "--extract")) { // extract mode
         struct stat st;
         if (stat(path, &st) != 0) {
             fprintf(stderr, "Invalid path: %s\n", path);
@@ -616,10 +616,10 @@ int main(int argc, char **argv) {
             extract_acf(path);
         }
     }
-    else if (strcmp(mode, "b") == 0) { // build mode
+    else if (!strcmp(mode, "-b") || !strcmp(mode, "--build")) { // build mode
         struct stat st;
         if (stat(path, &st) != 0 || !S_ISDIR(st.st_mode)) {
-            fprintf(stderr, "Invalid directory for build: %s\n", path);
+            fprintf(stderr, "Invalid path: %s\n", path);
             return 1;
         }
 
