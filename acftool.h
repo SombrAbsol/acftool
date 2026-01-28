@@ -18,11 +18,11 @@
 
 typedef struct {
     char magic[4];       // "acf\0"
-    uint32_t headerSize; // usually 0x20
+    uint32_t headerSize; // usually 0x20?
     uint32_t dataStart;
     uint32_t numFiles;
-    uint32_t unknown1;   // always 1?
-    uint32_t unknown2;   // always 0x32?
+    uint32_t unknown1;   // always 1
+    uint32_t unknown2;   // always 0x32
     uint32_t padding[2];
 } ACFHeader;
 
@@ -34,9 +34,6 @@ typedef struct {
 
 // padding
 size_t pad_size(size_t size, size_t align);
-
-// lz10 decompression
-uint8_t *lz10_decompress(const uint8_t *src, size_t srcSize, size_t *outSize);
 
 // file helpers
 uint8_t *read_file(const char *path, size_t *outSize);
@@ -54,6 +51,10 @@ const char *try_get_extension(
     char *outExt,
     size_t outExtSz
 );
+
+// lz10 (de)compression
+uint8_t *lz10_decompress(const uint8_t *src, size_t srcSize, size_t *outSize);
+uint8_t *lz10_compress(const uint8_t *src, size_t srcSize, size_t *outSize);
 
 // acf operations
 int extract_acf(const char *path);

@@ -21,6 +21,91 @@ size_t pad_size(size_t size, size_t align) {
     return (size + align - 1) & ~(align - 1);
 }
 
+// read entire file into memory
+uint8_t *read_file(const char *path, size_t *outSize) {
+    if (!path || !outSize) return NULL;
+
+    struct stat st;
+    if (stat(path, &st) != 0 || st.st_size < 0) return NULL;
+
+    size_t size = (size_t)st.st_size;
+    FILE *f = fopen(path, "rb");
+    if (!f) return NULL;
+
+    uint8_t *buf = malloc(size ? size : 1);
+    if (!buf) { fclose(f); return NULL; }
+
+    size_t got = fread(buf, 1, size, f);
+    fclose(f);
+    if (got != size) { free(buf); return NULL; }
+
+    *outSize = size;
+    return buf;
+}
+
+// write data to a file
+int write_file(const char *path, const uint8_t *data, size_t size) {
+    if (!path) return -1;
+
+    FILE *f = fopen(path, "wb");
+    if (!f) return -1;
+
+    if (size && data) {
+        if (fwrite(data, 1, size, f) != size) { fclose(f); return -1; }
+    }
+
+    fclose(f);
+    return EXIT_SUCCESS;
+}
+
+// check if extension needs reversing
+int is_invertible(const char *ext) {
+    const char *invertible[] = { "RGCN", "RLCN", "RECN", "RNAN", "RCSN", "RTFN" };
+    for (size_t i = 0; i < sizeof(invertible)/sizeof(invertible[0]); ++i) {
+        if (strcasecmp(ext, invertible[i]) == 0) return EXIT_FAILURE;
+    }
+    return EXIT_SUCCESS;
+}
+
+// reverse string in place
+void reverse_str_inplace(char *s) {
+    if (!s) return;
+    size_t i = 0, j = strlen(s);
+    if (j < 2) return;
+    --j;
+    while (i < j) {
+        char t = s[i]; s[i++] = s[j]; s[j--] = t;
+    }
+}
+
+// try to detect file extension from data
+const char *try_get_extension(
+    const uint8_t *data, size_t size,
+    int maxlength, int minlength,
+    const char *defaultExt, char *outExt, size_t outExtSz
+) {
+    if (!defaultExt || !outExt || outExtSz == 0) return defaultExt;
+    if (!data || size == 0 || maxlength <= 0 || minlength < 0) {
+        strncpy(outExt, defaultExt, outExtSz);
+        outExt[outExtSz-1] = '\0';
+        return defaultExt;
+    }
+
+    int n = 0;
+    for (int i = 0; i < maxlength && (size_t)i < size; ++i) {
+        unsigned char c = data[i];
+        if (isalnum(c)) {
+            if ((size_t)n + 1 < outExtSz) outExt[n++] = (char)c;
+            else break;
+        } else break;
+    }
+
+    outExt[n] = '\0';
+    if (n <= minlength) return defaultExt;
+    if (is_invertible(outExt)) reverse_str_inplace(outExt); // reverse if needed
+    return outExt;
+}
+
 // lz10 decompression
 uint8_t *lz10_decompress(const uint8_t *src, size_t srcSize, size_t *outSize) {
     if (!src || srcSize < 4 || !outSize) return NULL; // invalid input
@@ -119,91 +204,6 @@ uint8_t *lz10_compress(const uint8_t *src, size_t srcSize, size_t *outSize) {
     *outSize = dp-out;
     uint8_t *r = realloc(out, *outSize); // shrink buffer
     return r ? r : out;
-}
-
-// read entire file into memory
-uint8_t *read_file(const char *path, size_t *outSize) {
-    if (!path || !outSize) return NULL;
-
-    struct stat st;
-    if (stat(path, &st) != 0 || st.st_size < 0) return NULL;
-
-    size_t size = (size_t)st.st_size;
-    FILE *f = fopen(path, "rb");
-    if (!f) return NULL;
-
-    uint8_t *buf = malloc(size ? size : 1);
-    if (!buf) { fclose(f); return NULL; }
-
-    size_t got = fread(buf, 1, size, f);
-    fclose(f);
-    if (got != size) { free(buf); return NULL; }
-
-    *outSize = size;
-    return buf;
-}
-
-// write data to a file
-int write_file(const char *path, const uint8_t *data, size_t size) {
-    if (!path) return -1;
-
-    FILE *f = fopen(path, "wb");
-    if (!f) return -1;
-
-    if (size && data) {
-        if (fwrite(data, 1, size, f) != size) { fclose(f); return -1; }
-    }
-
-    fclose(f);
-    return EXIT_SUCCESS;
-}
-
-// check if extension needs reversing
-int is_invertible(const char *ext) {
-    const char *invertible[] = { "RGCN", "RLCN", "RECN", "RNAN", "RCSN", "RTFN" };
-    for (size_t i = 0; i < sizeof(invertible)/sizeof(invertible[0]); ++i) {
-        if (strcasecmp(ext, invertible[i]) == 0) return EXIT_FAILURE;
-    }
-    return EXIT_SUCCESS;
-}
-
-// reverse string in place
-void reverse_str_inplace(char *s) {
-    if (!s) return;
-    size_t i = 0, j = strlen(s);
-    if (j < 2) return;
-    --j;
-    while (i < j) {
-        char t = s[i]; s[i++] = s[j]; s[j--] = t;
-    }
-}
-
-// try to detect file extension from data
-const char *try_get_extension(
-    const uint8_t *data, size_t size,
-    int maxlength, int minlength,
-    const char *defaultExt, char *outExt, size_t outExtSz
-) {
-    if (!defaultExt || !outExt || outExtSz == 0) return defaultExt;
-    if (!data || size == 0 || maxlength <= 0 || minlength < 0) {
-        strncpy(outExt, defaultExt, outExtSz);
-        outExt[outExtSz-1] = '\0';
-        return defaultExt;
-    }
-
-    int n = 0;
-    for (int i = 0; i < maxlength && (size_t)i < size; ++i) {
-        unsigned char c = data[i];
-        if (isalnum(c)) {
-            if ((size_t)n + 1 < outExtSz) outExt[n++] = (char)c;
-            else break;
-        } else break;
-    }
-
-    outExt[n] = '\0';
-    if (n <= minlength) return defaultExt;
-    if (is_invertible(outExt)) reverse_str_inplace(outExt); // reverse if needed
-    return outExt;
 }
 
 // extract files from acf archive
@@ -607,14 +607,21 @@ int main(int argc, char **argv) {
 	#ifdef _WIN32
     SetConsoleOutputCP(CP_UTF8); // force utf-8 on windows
 	#endif
-	
-    if (argc < 3) {
+
+    if (argc >= 2 && (!strcmp(argv[1], "--help") || !strcmp(argv[1], "-h"))) {
         printf("Copyright (c) 2026 SombrAbsol\n");
         printf("acftool - ACF archive utility for Pokémon Ranger: Guardian Signs\n\n");
         printf("Usage:\n");
-        printf("  %s -x|--extract <in.acf|indir>\n", argv[0]);
-        printf("  %s -b|--build   <indir>\n", argv[0]);
+        printf("  %s -x|--extract <in.acf|indir>  extract mode\n", argv[0]);
+        printf("  %s -b|--build   <indir>         build mode\n", argv[0]);
+        printf("  %s -h|--help                    show this help\n", argv[0]);
         return EXIT_SUCCESS;
+    }
+	
+    if (argc != 3) {
+        fprintf(stderr, "Invalid arguments\n");
+        fprintf(stderr, "Try '%s --help' for more information.\n", argv[0]);
+        return EXIT_FAILURE;
     }
 
     const char *mode = argv[1];
@@ -623,7 +630,7 @@ int main(int argc, char **argv) {
     if (!strcmp(mode, "-x") || !strcmp(mode, "--extract")) { // extract mode
         struct stat st;
         if (stat(path, &st) != 0) {
-            fprintf(stderr, "Invalid path: %s\n", path);
+            fprintf(stderr, "Invalid path: '%s'\n", path);
             return EXIT_FAILURE;
         }
 
@@ -633,19 +640,18 @@ int main(int argc, char **argv) {
         } else { // single file
             extract_acf(path);
         }
-    }
-    else if (!strcmp(mode, "-b") || !strcmp(mode, "--build")) { // build mode
+    } else if (!strcmp(mode, "-b") || !strcmp(mode, "--build")) { // build mode
         struct stat st;
         if (stat(path, &st) != 0 || !S_ISDIR(st.st_mode)) {
-            fprintf(stderr, "Invalid path: %s\n", path);
+            fprintf(stderr, "Invalid path: '%s'\n", path);
             return EXIT_FAILURE;
         }
 
         printf("Building ACF from directory: %s\n", path);
         build_acf(path);
-    }
-    else {
-        fprintf(stderr, "Unknown mode %s\n", mode);
+    } else {
+        fprintf(stderr, "Unknown option: %s\n", mode);
+        fprintf(stderr, "Try '%s --help' for more information.\n", argv[0]);
         return EXIT_FAILURE;
     }
 
