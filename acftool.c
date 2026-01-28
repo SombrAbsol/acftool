@@ -154,16 +154,16 @@ int write_file(const char *path, const uint8_t *data, size_t size) {
     }
 
     fclose(f);
-    return 0;
+    return EXIT_SUCCESS;
 }
 
 // check if extension needs reversing
 int is_invertible(const char *ext) {
     const char *invertible[] = { "RGCN", "RLCN", "RECN", "RNAN", "RCSN", "RTFN" };
     for (size_t i = 0; i < sizeof(invertible)/sizeof(invertible[0]); ++i) {
-        if (strcasecmp(ext, invertible[i]) == 0) return 1;
+        if (strcasecmp(ext, invertible[i]) == 0) return EXIT_FAILURE;
     }
-    return 0;
+    return EXIT_SUCCESS;
 }
 
 // reverse string in place
@@ -207,19 +207,19 @@ const char *try_get_extension(
 
 // extract files from acf archive
 int extract_acf(const char *path) {
-    if (!path) return 1;
+    if (!path) return EXIT_FAILURE;
 
     size_t fileSize;
     uint8_t *fileData = read_file(path, &fileSize);
     if (!fileData) {
         fprintf(stderr, "Can't read %s\n", path);
-        return 1;
+        return EXIT_FAILURE;
     }
 
     if (fileSize < sizeof(ACFHeader)) {
         fprintf(stderr, "%s: too small to be an ACF\n", path);
         free(fileData);
-        return 1;
+        return EXIT_FAILURE;
     }
 
     // read header
@@ -229,14 +229,14 @@ int extract_acf(const char *path) {
     if (memcmp(hdr.magic, "acf", 3) != 0) {
         fprintf(stderr, "%s doesn't have an 'acf\\0' header\n", path);
         free(fileData);
-        return 1;
+        return EXIT_FAILURE;
     }
 
     size_t fatOffset = hdr.headerSize;
     if (hdr.numFiles * sizeof(FATEntry) > fileSize - fatOffset) {
         fprintf(stderr, "%s: FAT table exceeds file size\n", path);
         free(fileData);
-        return 1;
+        return EXIT_FAILURE;
     }
 
     FATEntry *entries = (FATEntry*)(fileData + fatOffset);
@@ -255,13 +255,16 @@ int extract_acf(const char *path) {
     if (!mf) {
         fprintf(stderr, "Cannot create metadata file\n");
         free(fileData);
-        return 1;
+        return EXIT_FAILURE;
     }
 
     char extBuf[16];
     for (uint32_t i = 0; i < hdr.numFiles; ++i) {
         FATEntry e = entries[i];
-        if (e.relativeOffset == 0xFFFFFFFFu) continue;
+        if (e.relativeOffset == 0xFFFFFFFFu) { // unused entry
+			fprintf(mf, "%04u -1\n", i);
+			continue;
+		}
 
         size_t dataOffset = (size_t)hdr.dataStart + (size_t)e.relativeOffset;
         if (dataOffset >= fileSize) {
@@ -285,7 +288,7 @@ int extract_acf(const char *path) {
                     fprintf(stderr, "OOME\n");
                     free(fileData);
                     fclose(mf);
-                    return 1;
+                    return EXIT_FAILURE;
                 }
                 memcpy(outBuf, src, outSize);
             } else {
@@ -298,7 +301,7 @@ int extract_acf(const char *path) {
                 fprintf(stderr, "OOME\n");
                 free(fileData);
                 fclose(mf);
-                return 1;
+                return EXIT_FAILURE;
             }
             memcpy(outBuf, src, outSize);
         }
@@ -325,7 +328,7 @@ int extract_acf(const char *path) {
     printf("\n");
     fclose(mf);
     free(fileData);
-    return 0;
+    return EXIT_SUCCESS;
 }
 
 // process all acf archives in a directory
@@ -374,14 +377,14 @@ void process_directory(const char *directory) {
 
 // build an acf archive from a directory
 int build_acf(const char *directory) {
-    if (!directory) return 1;
+    if (!directory) return EXIT_FAILURE;
 
     // read metadata from filelist.txt
     char metafile[512];
     snprintf(metafile, sizeof(metafile), "%s/filelist.txt", directory);
     FILE *mf = fopen(metafile, "r");
     char **files = NULL;
-    uint32_t *compressFlags = NULL;
+    int *compressFlags = NULL;  // use int to hold -1 for unused entries
     size_t numFiles = 0;
 
     if (mf) {
@@ -389,54 +392,71 @@ int build_acf(const char *directory) {
         while (fgets(line, sizeof(line), mf)) {
             if (line[0] == '#' || strlen(line) < 3) continue;
 
-            char fname[512];
-            unsigned int comp;
-            if (sscanf(line, "%s %u", fname, &comp) == 2) {
-                char **tmpFiles = realloc(files, (numFiles+1) * sizeof(char*));
+            char id[32];
+            int flag;
+            if (sscanf(line, "%31s %d", id, &flag) != 2) continue;
+
+            // determine the index from the ID
+            int index = atoi(id);
+            if ((size_t)(index + 1) > numFiles) {
+                // expand arrays if needed
+                char **tmpFiles = realloc(files, (index + 1) * sizeof(char*));
                 if (!tmpFiles) {
-                    for (size_t i = 0; i < numFiles; i++) free(files[i]);
+                    for (size_t j = 0; j < numFiles; j++) free(files[j]);
                     free(files);
                     free(compressFlags);
                     fclose(mf);
                     fprintf(stderr, "Memory allocation failed\n");
-                    return 1;
+                    return EXIT_FAILURE;
                 }
                 files = tmpFiles;
 
-                uint32_t *tmpFlags = realloc(compressFlags, (numFiles+1) * sizeof(uint32_t));
+                int *tmpFlags = realloc(compressFlags, (index + 1) * sizeof(int));
                 if (!tmpFlags) {
-                    for (size_t i = 0; i < numFiles; i++) free(files[i]);
+                    for (size_t j = 0; j < numFiles; j++) free(files[j]);
                     free(files);
                     free(compressFlags);
                     fclose(mf);
                     fprintf(stderr, "Memory allocation failed\n");
-                    return 1;
+                    return EXIT_FAILURE;
                 }
                 compressFlags = tmpFlags;
 
-                size_t pathlen = strlen(directory) + strlen(fname) + 2;
-                files[numFiles] = malloc(pathlen);
-                if (!files[numFiles]) {
-                    for (size_t i = 0; i < numFiles; i++) free(files[i]);
+                // initialize new entries
+                for (size_t j = numFiles; j <= (size_t)index; j++) {
+                    files[j] = NULL;
+                    compressFlags[j] = -1; // default to unused
+                }
+
+                numFiles = index + 1;
+            }
+
+            // store file path if not unused
+            if (flag == -1) {
+                files[index] = NULL; // mark unused
+                compressFlags[index] = -1;
+            } else {
+                size_t pathlen = strlen(directory) + strlen(id) + 8; // allow for extension
+                files[index] = malloc(pathlen);
+                if (!files[index]) {
+                    for (size_t j = 0; j < numFiles; j++) free(files[j]);
                     free(files);
                     free(compressFlags);
                     fclose(mf);
                     fprintf(stderr, "Memory allocation failed\n");
-                    return 1;
+                    return EXIT_FAILURE;
                 }
-
-                snprintf(files[numFiles], pathlen, "%s/%s", directory, fname);
-                compressFlags[numFiles] = comp;
-                numFiles++;
+                snprintf(files[index], pathlen, "%s/%s", directory, id);
+                compressFlags[index] = flag;
             }
         }
         fclose(mf);
     } else {
         fprintf(stderr, "Metadata file not found in %s\n", directory);
-        return 1;
+        return EXIT_FAILURE;
     }
 
-    if (numFiles == 0) { fprintf(stderr, "No files to pack\n"); return 1; }
+    if (numFiles == 0) { fprintf(stderr, "No files to pack\n"); return EXIT_FAILURE; }
 
     // create output acf archive
     char outname[512];
@@ -447,7 +467,7 @@ int build_acf(const char *directory) {
         for (size_t i = 0; i < numFiles; i++) free(files[i]);
         free(files);
         free(compressFlags);
-        return 1;
+        return EXIT_FAILURE;
     }
 
     // initialize header
@@ -468,7 +488,7 @@ int build_acf(const char *directory) {
         for (size_t i = 0; i < numFiles; i++) free(files[i]);
         free(files);
         free(compressFlags);
-        return 1;
+        return EXIT_FAILURE;
     }
 
     memcpy(headerBuf, &hdr, sizeof(hdr));
@@ -483,19 +503,31 @@ int build_acf(const char *directory) {
         for (size_t i = 0; i < numFiles; i++) free(files[i]);
         free(files);
         free(compressFlags);
-        return 1;
+        return EXIT_FAILURE;
+    }
+
+    // initialize FAT to unused
+    for (size_t i = 0; i < numFiles; i++) {
+        fat[i].relativeOffset = 0xFFFFFFFFu;
+        fat[i].inputSize = 0;
+        fat[i].outputSize = 0;
     }
 
     fwrite(fat, sizeof(FATEntry), numFiles, out);
 
     // write files
     size_t offset = 0;
-
     for (size_t i = 0; i < numFiles; i++) {
+        // skip unused entries
+        if (compressFlags[i] == -1 || files[i] == NULL) {
+            fat[i].relativeOffset = 0xFFFFFFFFu;
+            fat[i].inputSize = 0;
+            fat[i].outputSize = 0;
+            continue;
+        }
 
         size_t sz = 0;
         uint8_t *buf = read_file(files[i], &sz);
-
         if (!buf) {
             fprintf(stderr, "Skipping %s\n", files[i]);
             fat[i].relativeOffset = 0xFFFFFFFFu;
@@ -505,18 +537,15 @@ int build_acf(const char *directory) {
         }
 
         int doCompress = compressFlags[i];
-        if (i == 0) {
-            doCompress = 0; // fat[0] is always raw
-        }
-            fat[i].relativeOffset = (uint32_t)offset;
+        if (i == 0) doCompress = 0; // first file always raw
+
+        fat[i].relativeOffset = (uint32_t)offset;
 
         if (doCompress) {
-
             size_t compSize = 0;
             uint8_t *comp = lz10_compress(buf, sz, &compSize);
 
             size_t paddedComp = pad_size(compSize, 4);
-
             fwrite(comp, 1, compSize, out);
 
             // padding
@@ -527,20 +556,17 @@ int build_acf(const char *directory) {
             fat[i].outputSize = (uint32_t)pad_size(sz, 4);
 
             offset += paddedComp;
-        }
-
-        if (!doCompress) {
+            free(comp);
+        } else {
             size_t padded = pad_size(sz, 4);
-
-            fat[i].outputSize = (uint32_t)padded;
-            fat[i].inputSize  = 0;
-
             fwrite(buf, 1, sz, out);
 
             // padding
             for (size_t p = sz; p < padded; p++)
                 fputc(0x00, out);
 
+            fat[i].inputSize = 0;
+            fat[i].outputSize = (uint32_t)padded;
             offset += padded;
         }
 
@@ -556,21 +582,8 @@ int build_acf(const char *directory) {
 
     // update header and fat table
     hdr.dataStart = (uint32_t)(hdr.headerSize + numFiles * sizeof(FATEntry));
-    headerBuf = calloc(1, hdr.headerSize);
-    if (!headerBuf) {
-        fprintf(stderr, "Memory allocation failed\n");
-        fclose(out);
-        free(fat);
-        for (size_t i = 0; i < numFiles; i++) free(files[i]);
-        free(files);
-        free(compressFlags);
-        return 1;
-    }
-
-    memcpy(headerBuf, &hdr, sizeof(hdr));
     fseek(out, 0, SEEK_SET);
     fwrite(&hdr, 1, sizeof(hdr), out);
-    free(headerBuf);
 
     fseek(out, hdr.headerSize, SEEK_SET);
     fwrite(fat, sizeof(FATEntry), numFiles, out);
@@ -586,7 +599,7 @@ int build_acf(const char *directory) {
     printf("Built %s with %zu files. headerSize=0x%X dataStart=0x%X\n",
            outname, numFiles, (unsigned)hdr.headerSize, (unsigned)hdr.dataStart);
 
-    return 0;
+    return EXIT_SUCCESS;
 }
 
 int main(int argc, char **argv) {
@@ -596,7 +609,7 @@ int main(int argc, char **argv) {
         printf("Usage:\n");
         printf("  %s -x|--extract <in.acf|indir>\n", argv[0]);
         printf("  %s -b|--build   <indir>\n", argv[0]);
-        return 0;
+        return EXIT_SUCCESS;
     }
 
     const char *mode = argv[1];
@@ -606,7 +619,7 @@ int main(int argc, char **argv) {
         struct stat st;
         if (stat(path, &st) != 0) {
             fprintf(stderr, "Invalid path: %s\n", path);
-            return 1;
+            return EXIT_FAILURE;
         }
 
         if (S_ISDIR(st.st_mode)) { // directory
@@ -620,7 +633,7 @@ int main(int argc, char **argv) {
         struct stat st;
         if (stat(path, &st) != 0 || !S_ISDIR(st.st_mode)) {
             fprintf(stderr, "Invalid path: %s\n", path);
-            return 1;
+            return EXIT_FAILURE;
         }
 
         printf("Building ACF from directory: %s\n", path);
@@ -628,8 +641,8 @@ int main(int argc, char **argv) {
     }
     else {
         fprintf(stderr, "Unknown mode %s\n", mode);
-        return 1;
+        return EXIT_FAILURE;
     }
 
-    return 0;
+    return EXIT_SUCCESS;
 }
