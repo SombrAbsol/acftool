@@ -1,7 +1,12 @@
 CC := $(shell command -v clang >/dev/null 2>&1 && echo clang || echo gcc)
 CFLAGS  := -O3 -Wall -Wextra -Werror
 
-TARGET  := acftool
+ifeq ($(OS),Windows_NT)
+	TARGET := acftool.exe
+else
+	TARGET := acftool
+endif
+
 SRCS    := acftool.c
 OBJS    := $(SRCS:.c=.o)
 
@@ -16,4 +21,4 @@ $(TARGET): $(OBJS)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
-	$(RM) $(OBJS) $(TARGET) $(TARGET).exe
+	$(RM) $(OBJS) $(TARGET)
