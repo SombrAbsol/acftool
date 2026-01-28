@@ -34,13 +34,13 @@ To get the ACF archives, Windows users can run [TinkeDSi](https://github.com/R-Y
 
 ### Running acftool
 #### ACF Extraction
-* To extract files from an ACF archive, run `acftool e <file.acf>`
-* To extract files from every ACF archives in a directory, run `acftool e <directory>`
+* To extract files from an ACF archive, run `acftool -x <in.acf>` or `acftool --extract <in.acf>`
+* To extract files from every ACF archives in a directory, run `acftool -x <indir>` or `acftool --extract <indir>`
 
 The output files will be located in a directory with the same name as the input ACF archive.
 
 #### ACF Building
-To build an ACF archive, run `acftool b <directory>`. Please note that the target directory must contain a `filelist.txt` file listing the files to be compressed and a Boolean compression value (0: do not compress; 1: compress), for example:
+To build an ACF archive, run `acftool -b <indir>` or `acftool --build <indir>`. Please note that the target directory must contain a `filelist.txt` file listing the files to be compressed and a Boolean compression value (0: do not compress; 1: compress), for example:
 ```
 0000.RTCA 0
 0001.NCLR 1
