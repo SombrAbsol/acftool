@@ -10,6 +10,7 @@
 #ifdef _WIN32
 #include <io.h>
 #include <direct.h>
+#include <windows.h>
 #else
 #include <dirent.h>
 #include <unistd.h>
@@ -384,7 +385,7 @@ int build_acf(const char *directory) {
     snprintf(metafile, sizeof(metafile), "%s/filelist.txt", directory);
     FILE *mf = fopen(metafile, "r");
     char **files = NULL;
-    int *compressFlags = NULL;  // use int to hold -1 for unused entries
+    int *compressFlags = NULL; // -1 = unused; 0 = raw; 1 = compressed
     size_t numFiles = 0;
 
     if (mf) {
@@ -396,7 +397,7 @@ int build_acf(const char *directory) {
             int flag;
             if (sscanf(line, "%31s %d", id, &flag) != 2) continue;
 
-            // determine the index from the ID
+            // determine the index from the id
             int index = atoi(id);
             if ((size_t)(index + 1) > numFiles) {
                 // expand arrays if needed
@@ -603,6 +604,10 @@ int build_acf(const char *directory) {
 }
 
 int main(int argc, char **argv) {
+	#ifdef _WIN32
+    SetConsoleOutputCP(CP_UTF8); // force utf-8 on windows
+	#endif
+	
     if (argc < 3) {
         printf("Copyright (c) 2026 SombrAbsol\n");
         printf("acftool - ACF archive utility for Pokémon Ranger: Guardian Signs\n\n");
