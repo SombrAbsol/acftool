@@ -1,5 +1,5 @@
 CC := $(shell command -v clang >/dev/null 2>&1 && echo clang || echo gcc)
-CFLAGS  := -O3 -Wall -Wextra -Werror
+CFLAGS := -O3 -Wall -Wextra -Werror
 
 ifeq ($(OS),Windows_NT)
 	TARGET := acftool.exe
