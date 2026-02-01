@@ -62,7 +62,6 @@ gcc -O3 -Wall -Wextra -Werror -o acftool acftool.c
 * Add ACZ support
 * Add containers (FPKD, NPCD…) support(?)
 
-
 ## Credits
 * acftool by [SombrAbsol](https://github.com/SombrAbsol)
 * acfdump and ACF documentation by [Barubary](https://github.com/Barubary) (the original acfdump is available on [his website](http://www.propl.nl/javaprogs/acfdump.jar))
