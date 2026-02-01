@@ -9,8 +9,6 @@ ACF archives are used in *Pokémon Ranger: Guardian Signs* data. This tool allow
 
 For more information on the ACF format, see [the documentation](/doc/acf.md).
 
-Please note that the ACF building process is currently insufficient. File extraction works fine on original and rebuilt ACF archives, while rebuilt archives work in-game but do not match their originals.
-
 ## Download
 |         | Linux | Windows |
 | ------- | ----- | ------- |
@@ -61,7 +59,6 @@ gcc -O3 -Wall -Wextra -Werror -o acftool acftool.c
 ```
 
 ## TODO
-* Fix LZ10 compression
 * Add ACZ support
 * Add containers (FPKD, NPCD…) support(?)
 
