@@ -2,6 +2,7 @@
 
 #include "acftool.h"
 #include <ctype.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -157,53 +158,87 @@ uint8_t *lz10_decompress(const uint8_t *src, size_t srcSize, size_t *outSize) {
 
 // lz10 compression
 uint8_t *lz10_compress(const uint8_t *src, size_t srcSize, size_t *outSize) {
-    if (!src || !srcSize || !outSize) return NULL;
+    if (!src || !outSize)
+        return NULL;
 
-    size_t max = srcSize + srcSize/8 + 32; // rough max size
-    uint8_t *out = malloc(max);
-    if (!out) return NULL;
+    // worst-case size
+    size_t maxSize = 4 + srcSize + ((srcSize + 7) >> 3);
+    uint8_t *out = calloc(maxSize, 1);
+    if (!out)
+        return NULL;
 
-    uint8_t *dp = out + 4;
-
-    // write header
+    // header: 0x10 + 24-bit raw size
     out[0] = 0x10;
-    out[1] = srcSize;  out[2] = srcSize>>8;  out[3] = srcSize>>16;
+    out[1] = (uint8_t)(srcSize & 0xFF);
+    out[2] = (uint8_t)((srcSize >> 8) & 0xFF);
+    out[3] = (uint8_t)((srcSize >> 16) & 0xFF);
 
-    size_t sp = 0;
-    while (sp < srcSize) {
-        uint8_t *flagp = dp++; uint8_t flags = 0;
+    const uint8_t *raw = src;
+    const uint8_t *rawEnd = src + srcSize;
+    uint8_t *pak = out + 4;
 
-        for (int bit=0; bit<8 && sp<srcSize; ++bit) {
-            // search for best match
-            size_t bestLen=0, bestDisp=0, maxDisp = sp < 0x1000 ? sp : 0x1000;
+    uint8_t *flagp = NULL;
+    uint8_t mask = 0;
 
-            for (size_t disp=1; disp<=maxDisp; ++disp) {
-                if (src[sp-disp] != src[sp]) continue;
-                size_t len=0;
-                while (len<18 && sp+len<srcSize && src[sp-disp+len]==src[sp+len]) ++len;
-                if (len >= 3 && len > bestLen) {
-                    bestLen = len;
-                    bestDisp = disp;
-                    if (len == 18) break;
-                }
+    while (raw < rawEnd) {
+        // start a new flag byte every 8 symbols
+        if (!(mask >>= 1)) {
+            flagp = pak++;
+            *flagp = 0;
+            mask = 0x80;
+        }
+
+        size_t bestLen = 2;
+        size_t bestPos = 0;
+
+        size_t maxPos = (size_t)(raw - src);
+        if (maxPos > 0x1000)
+            maxPos = 0x1000;
+
+        size_t maxLen = (size_t)(rawEnd - raw);
+        if (maxLen > 0x12)
+            maxLen = 0x12;
+
+        for (size_t p = maxPos; p > 1; --p) {
+            if (raw[0] != raw[-(ptrdiff_t)p])
+                continue;
+
+            size_t l = 1;
+            const uint8_t *a = raw + 1;
+            const uint8_t *b = raw - p + 1;
+
+            while (l < maxLen && *a == *b) {
+                ++a;
+                ++b;
+                ++l;
             }
 
-            if (bestLen>=3) { // write compressed block
-                flags |= 0x80>>bit;
-                uint16_t d = bestDisp-1;
-                *dp++ = ((bestLen-3)<<4) | (d>>8);
-                *dp++ = d;
-                sp += bestLen;
-            } else { // write literal byte
-                *dp++ = src[sp++];
+            if (l > bestLen) {
+                bestLen = l;
+                bestPos = p;
+                if (l == maxLen)
+                    break;
             }
         }
-        *flagp = flags; // store flags
+
+        if (bestLen > 2) {
+            // compressed block
+            *flagp |= mask;
+
+            size_t lenField = bestLen - (2 + 1);
+            size_t posField = bestPos - 1;
+
+            *pak++ = (uint8_t)((lenField << 4) | (posField >> 8));
+            *pak++ = (uint8_t)(posField & 0xFF);
+
+            raw += bestLen;
+        } else {
+            *pak++ = *raw++; // literal byte
+        }
     }
 
-    *outSize = dp-out;
-    uint8_t *r = realloc(out, *outSize); // shrink buffer
-    return r ? r : out;
+    *outSize = (size_t)(pak - out);
+    return out;
 }
 
 // extract files from acf archive
