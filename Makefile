@@ -7,8 +7,8 @@ else
 	TARGET := acftool
 endif
 
-SRCS    := acftool.c
-OBJS    := $(SRCS:.c=.o)
+SRCS := main.c acf.c lz10.c utils.c
+OBJS := $(SRCS:.c=.o)
 
 .PHONY: all clean
 
@@ -17,7 +17,7 @@ all: $(TARGET)
 $(TARGET): $(OBJS)
 	$(CC) -o $@ $^
 
-%.o: %.c acfdump.h
+%.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:

@@ -1,12 +1,11 @@
 // Copyright (c) 2026 SombrAbsol
 
-#include "acftool.h"
-#include <ctype.h>
-#include <stddef.h>
+#include "acf.h"
+#include "utils.h"
+#include "lz10.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/stat.h>
 
 #ifdef _WIN32
 #include <io.h>
@@ -16,230 +15,6 @@
 #include <dirent.h>
 #include <unistd.h>
 #endif
-
-// padding
-size_t pad_size(size_t size, size_t align) {
-    return (size + align - 1) & ~(align - 1);
-}
-
-// read entire file into memory
-uint8_t *read_file(const char *path, size_t *outSize) {
-    if (!path || !outSize) return NULL;
-
-    struct stat st;
-    if (stat(path, &st) != 0 || st.st_size < 0) return NULL;
-
-    size_t size = (size_t)st.st_size;
-    FILE *f = fopen(path, "rb");
-    if (!f) return NULL;
-
-    uint8_t *buf = malloc(size ? size : 1);
-    if (!buf) { fclose(f); return NULL; }
-
-    size_t got = fread(buf, 1, size, f);
-    fclose(f);
-    if (got != size) { free(buf); return NULL; }
-
-    *outSize = size;
-    return buf;
-}
-
-// write data to a file
-int write_file(const char *path, const uint8_t *data, size_t size) {
-    if (!path) return -1;
-
-    FILE *f = fopen(path, "wb");
-    if (!f) return -1;
-
-    if (size && data) {
-        if (fwrite(data, 1, size, f) != size) { fclose(f); return -1; }
-    }
-
-    fclose(f);
-    return EXIT_SUCCESS;
-}
-
-// check if extension needs reversing
-int is_invertible(const char *ext) {
-    const char *invertible[] = { "RGCN", "RLCN", "RECN", "RNAN", "RCSN", "RTFN" };
-    for (size_t i = 0; i < sizeof(invertible)/sizeof(invertible[0]); ++i) {
-        if (strcasecmp(ext, invertible[i]) == 0) return EXIT_FAILURE;
-    }
-    return EXIT_SUCCESS;
-}
-
-// reverse string in place
-void reverse_str_inplace(char *s) {
-    if (!s) return;
-    size_t i = 0, j = strlen(s);
-    if (j < 2) return;
-    --j;
-    while (i < j) {
-        char t = s[i]; s[i++] = s[j]; s[j--] = t;
-    }
-}
-
-// try to detect file extension from data
-const char *try_get_extension(
-    const uint8_t *data, size_t size,
-    int maxlength, int minlength,
-    const char *defaultExt, char *outExt, size_t outExtSz
-) {
-    if (!defaultExt || !outExt || outExtSz == 0) return defaultExt;
-    if (!data || size == 0 || maxlength <= 0 || minlength < 0) {
-        strncpy(outExt, defaultExt, outExtSz);
-        outExt[outExtSz-1] = '\0';
-        return defaultExt;
-    }
-
-    int n = 0;
-    for (int i = 0; i < maxlength && (size_t)i < size; ++i) {
-        unsigned char c = data[i];
-        if (isalnum(c)) {
-            if ((size_t)n + 1 < outExtSz) outExt[n++] = (char)c;
-            else break;
-        } else break;
-    }
-
-    outExt[n] = '\0';
-    if (n <= minlength) return defaultExt;
-    if (is_invertible(outExt)) reverse_str_inplace(outExt); // reverse if needed
-    return outExt;
-}
-
-// lz10 decompression
-uint8_t *lz10_decompress(const uint8_t *src, size_t srcSize, size_t *outSize) {
-    if (!src || srcSize < 4 || !outSize) return NULL; // invalid input
-
-    uint8_t method = src[0];
-    if (method != 0x10) return NULL; // check compression type
-
-    // read decompressed size from header
-    uint32_t decSize = (uint32_t)src[1] | ((uint32_t)src[2] << 8) | ((uint32_t)src[3] << 16);
-    if (decSize == 0) return NULL;
-
-    uint8_t *dst = malloc(decSize); // allocate output buffer
-    if (!dst) return NULL;
-
-    const uint8_t *sp = src + 4;
-    const uint8_t *send = src + srcSize;
-    uint8_t *dp = dst;
-    uint8_t *dend = dst + decSize;
-
-    // main decompression loop
-    while (dp < dend && sp < send) {
-        uint8_t flags = *sp++;
-        for (int bit = 0; bit < 8 && dp < dend; ++bit) {
-            if ((flags & 0x80) == 0) { // literal byte
-                if (sp >= send) { free(dst); return NULL; }
-                *dp++ = *sp++;
-            } else { // compressed block
-                if (sp + 1 >= send) { free(dst); return NULL; }
-                uint8_t b1 = *sp++;
-                uint8_t b2 = *sp++;
-                int length = (b1 >> 4) + 3; // length of copy
-                size_t disp = (size_t)((((b1 & 0x0F) << 8) | b2) + 1); // displacement
-
-                if ((size_t)(dp - dst) < disp) { free(dst); return NULL; }
-
-                uint8_t *src_copy = dp - disp;
-                for (int k = 0; k < length && dp < dend; ++k) {
-                    *dp++ = *src_copy++;
-                }
-            }
-            flags <<= 1;
-        }
-    }
-
-    if (dp != dend) { free(dst); return NULL; }
-    *outSize = decSize;
-    return dst;
-}
-
-// lz10 compression
-uint8_t *lz10_compress(const uint8_t *src, size_t srcSize, size_t *outSize) {
-    if (!src || !outSize)
-        return NULL;
-
-    // worst-case size
-    size_t maxSize = 4 + srcSize + ((srcSize + 7) >> 3);
-    uint8_t *out = calloc(maxSize, 1);
-    if (!out)
-        return NULL;
-
-    // header: 0x10 + 24-bit raw size
-    out[0] = 0x10;
-    out[1] = (uint8_t)(srcSize & 0xFF);
-    out[2] = (uint8_t)((srcSize >> 8) & 0xFF);
-    out[3] = (uint8_t)((srcSize >> 16) & 0xFF);
-
-    const uint8_t *raw = src;
-    const uint8_t *rawEnd = src + srcSize;
-    uint8_t *pak = out + 4;
-
-    uint8_t *flagp = NULL;
-    uint8_t mask = 0;
-
-    while (raw < rawEnd) {
-        // start a new flag byte every 8 symbols
-        if (!(mask >>= 1)) {
-            flagp = pak++;
-            *flagp = 0;
-            mask = 0x80;
-        }
-
-        size_t bestLen = 2;
-        size_t bestPos = 0;
-
-        size_t maxPos = (size_t)(raw - src);
-        if (maxPos > 0x1000)
-            maxPos = 0x1000;
-
-        size_t maxLen = (size_t)(rawEnd - raw);
-        if (maxLen > 0x12)
-            maxLen = 0x12;
-
-        for (size_t p = maxPos; p > 1; --p) {
-            if (raw[0] != raw[-(ptrdiff_t)p])
-                continue;
-
-            size_t l = 1;
-            const uint8_t *a = raw + 1;
-            const uint8_t *b = raw - p + 1;
-
-            while (l < maxLen && *a == *b) {
-                ++a;
-                ++b;
-                ++l;
-            }
-
-            if (l > bestLen) {
-                bestLen = l;
-                bestPos = p;
-                if (l == maxLen)
-                    break;
-            }
-        }
-
-        if (bestLen > 2) {
-            // compressed block
-            *flagp |= mask;
-
-            size_t lenField = bestLen - (2 + 1);
-            size_t posField = bestPos - 1;
-
-            *pak++ = (uint8_t)((lenField << 4) | (posField >> 8));
-            *pak++ = (uint8_t)(posField & 0xFF);
-
-            raw += bestLen;
-        } else {
-            *pak++ = *raw++; // literal byte
-        }
-    }
-
-    *outSize = (size_t)(pak - out);
-    return out;
-}
 
 // extract files from acf archive
 int extract_acf(const char *path) {
@@ -298,9 +73,9 @@ int extract_acf(const char *path) {
     for (uint32_t i = 0; i < hdr.numFiles; ++i) {
         FATEntry e = entries[i];
         if (e.relativeOffset == 0xFFFFFFFFu) { // unused entry
-			fprintf(mf, "%04u -1\n", i);
-			continue;
-		}
+            fprintf(mf, "%04u -1\n", i);
+            continue;
+        }
 
         size_t dataOffset = (size_t)hdr.dataStart + (size_t)e.relativeOffset;
         if (dataOffset >= fileSize) {
@@ -634,61 +409,6 @@ int build_acf(const char *directory) {
 
     printf("Built %s with %zu files. headerSize=0x%X dataStart=0x%X\n",
            outname, numFiles, (unsigned)hdr.headerSize, (unsigned)hdr.dataStart);
-
-    return EXIT_SUCCESS;
-}
-
-int main(int argc, char **argv) {
-	#ifdef _WIN32
-    SetConsoleOutputCP(CP_UTF8); // force utf-8 on windows
-	#endif
-
-    if (argc >= 2 && (!strcmp(argv[1], "--help") || !strcmp(argv[1], "-h"))) {
-        printf("Copyright (c) 2026 SombrAbsol\n");
-        printf("acftool - ACF archive utility for Pokémon Ranger: Guardian Signs\n\n");
-        printf("Usage:\n");
-        printf("  %s -x|--extract <in.acf|indir>  extract mode\n", argv[0]);
-        printf("  %s -b|--build   <indir>         build mode\n", argv[0]);
-        printf("  %s -h|--help                    show this help\n", argv[0]);
-        return EXIT_SUCCESS;
-    }
-	
-    if (argc != 3) {
-        fprintf(stderr, "Invalid arguments\n");
-        fprintf(stderr, "Try '%s --help' for more information.\n", argv[0]);
-        return EXIT_FAILURE;
-    }
-
-    const char *mode = argv[1];
-    const char *path = argv[2];
-
-    if (!strcmp(mode, "-x") || !strcmp(mode, "--extract")) { // extract mode
-        struct stat st;
-        if (stat(path, &st) != 0) {
-            fprintf(stderr, "Invalid path: '%s'\n", path);
-            return EXIT_FAILURE;
-        }
-
-        if (S_ISDIR(st.st_mode)) { // directory
-            printf("Extracting all ACFs in directory: %s\n", path);
-            process_directory(path);
-        } else { // single file
-            extract_acf(path);
-        }
-    } else if (!strcmp(mode, "-b") || !strcmp(mode, "--build")) { // build mode
-        struct stat st;
-        if (stat(path, &st) != 0 || !S_ISDIR(st.st_mode)) {
-            fprintf(stderr, "Invalid path: '%s'\n", path);
-            return EXIT_FAILURE;
-        }
-
-        printf("Building ACF from directory: %s\n", path);
-        build_acf(path);
-    } else {
-        fprintf(stderr, "Unknown option: %s\n", mode);
-        fprintf(stderr, "Try '%s --help' for more information.\n", argv[0]);
-        return EXIT_FAILURE;
-    }
 
     return EXIT_SUCCESS;
 }
