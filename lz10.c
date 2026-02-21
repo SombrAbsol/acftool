@@ -2,7 +2,6 @@
 
 #include "lz10.h"
 #include <stdlib.h>
-#include <stddef.h>
 
 // lz10 decompression
 uint8_t *lz10_decompress(const uint8_t *src, size_t srcSize, size_t *outSize) {
