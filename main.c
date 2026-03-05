@@ -5,8 +5,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
-#include "lz10.h"
-#include "utils.h"
 
 #ifdef _WIN32
 #include <io.h>
@@ -16,6 +14,9 @@
 #include <dirent.h>
 #include <unistd.h>
 #endif
+
+#include "lz10.h"
+#include "utils.h"
 
 typedef struct {
     char magic[4];       // "acf\0"

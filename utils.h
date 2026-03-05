@@ -7,15 +7,15 @@
 #include <stdint.h>
 
 #ifdef _WIN32
-    #include <direct.h>
-    #include <io.h>
-    #include <sys/types.h>
-    #define mkdir_dir(name) _mkdir(name)
+#include <direct.h>
+#include <io.h>
+#include <sys/types.h>
+#define mkdir_dir(name) _mkdir(name)
 #else
-    #include <dirent.h>
-    #include <unistd.h>
-    #include <sys/stat.h>
-    #define mkdir_dir(name) mkdir(name, 0755)
+#include <dirent.h>
+#include <unistd.h>
+#include <sys/stat.h>
+#define mkdir_dir(name) mkdir(name, 0755)
 #endif
 
 // padding
