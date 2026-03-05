@@ -1,11 +1,13 @@
 // Copyright (c) 2026 SombrAbsol
 
-#include "utils.h"
 #include <ctype.h>
+#include <stddef.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include "utils.h"
 
 // padding
 size_t pad_size(size_t size, size_t align) {

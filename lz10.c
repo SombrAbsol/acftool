@@ -1,7 +1,9 @@
 // Copyright (c) 2026 SombrAbsol
 
-#include "lz10.h"
+#include <stddef.h>
+#include <stdint.h>
 #include <stdlib.h>
+#include "lz10.h"
 
 // lz10 decompression
 uint8_t *lz10_decompress(const uint8_t *src, size_t srcSize, size_t *outSize) {

@@ -7,7 +7,7 @@ else
 	TARGET := acftool
 endif
 
-SRCS := main.c acf.c lz10.c utils.c
+SRCS := main.c lz10.c utils.c
 OBJS := $(SRCS:.c=.o)
 
 .PHONY: all clean
