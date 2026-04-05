@@ -50,7 +50,6 @@ static void make_outdir(char *dst, size_t dstSize, const char *path) {
 
 static void join_path(char *dst, size_t dstSize, const char *dir, const char *name) {
     #ifdef _WIN32
-    char sep = '\\';
     if (!dir || !*dir) {
         snprintf(dst, dstSize, "%s", name);
         return;
@@ -112,6 +111,18 @@ static void cleanup_build(
     free(compressFlags);
     free_string_array(jsonNames, jsonCount);
     free(jsonStates);
+}
+
+static const char *path_basename(const char *path) {
+    const char *base = path;
+    if (!path) return "";
+
+    for (const char *p = path; *p; ++p) {
+        if (*p == '/' || *p == '\\')
+            base = p + 1;
+    }
+
+    return base;
 }
 
 // extract files from acf archive
@@ -275,7 +286,7 @@ static int extract_acf(const char *path) {
             free(outBuf);
 
             if ((i & 31u) == 31u || i == hdr.numFiles - 1) {
-                printf("\r  %s: extracted %u/%u", path, i + 1, hdr.numFiles);
+                printf("\r  %s: extracted %u/%u", path_basename(path), i + 1, hdr.numFiles);
                 fflush(stdout);
             }
         }
