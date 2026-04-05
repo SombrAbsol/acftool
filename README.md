@@ -38,13 +38,15 @@ To get the ACF archives, Windows users can run [TinkeDSi](https://github.com/R-Y
 The output files will be located in a directory with the same name as the input ACF archive.
 
 #### ACF Building
-To build an ACF archive, run `acftool -b <indir>` or `acftool --build <indir>`. Please note that the target directory must contain a `filelist.txt` file listing the files and a Boolean value (-1: set file entry as unused; 0: do not compress; 1: compress), for example:
-```
-0000.RTCA 0
-0001.NCLR 1
-0002.NCGR 1
-0003.NCER 1
-0004.CANR 1
+To build an ACF archive, run `acftool -b <indir>` or `acftool --build <indir>`. Please note that the target directory must contain a `filelist.json` file listing the files and their state (null: set file entry as unused; false: do not compress; true: compress), for example:
+```json
+{
+  "0000.RTCA": false,
+  "0001.NCLR": true,
+  "0002.NCGR": true,
+  "0003.NCER": true,
+  "0004.CANR": true
+}
 ```
 
 ## Building

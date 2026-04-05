@@ -9,15 +9,16 @@
 // lz10 decompression
 uint8_t *lz10_decompress(const uint8_t *src, size_t srcSize, size_t *outSize) {
     if (!src || srcSize < 4 || !outSize) return NULL; // invalid input
+    if (src[0] != 0x10) return NULL;
 
-    uint8_t method = src[0];
-    if (method != 0x10) return NULL; // check compression type
+    uint32_t decSize =
+    (uint32_t)src[1] |
+    ((uint32_t)src[2] << 8) |
+    ((uint32_t)src[3] << 16);
 
-    // read decompressed size from header
-    uint32_t decSize = (uint32_t)src[1] | ((uint32_t)src[2] << 8) | ((uint32_t)src[3] << 16);
     if (decSize == 0) return NULL;
 
-    uint8_t *dst = malloc(decSize); // allocate output buffer
+    uint8_t *dst = malloc(decSize);
     if (!dst) return NULL;
 
     const uint8_t *sp = src + 4;
@@ -25,42 +26,56 @@ uint8_t *lz10_decompress(const uint8_t *src, size_t srcSize, size_t *outSize) {
     uint8_t *dp = dst;
     uint8_t *dend = dst + decSize;
 
-    // main decompression loop
     while (dp < dend && sp < send) {
         uint8_t flags = *sp++;
-        for (int bit = 0; bit < 8 && dp < dend; ++bit) {
-            if ((flags & 0x80) == 0) { // literal byte
-                if (sp >= send) { free(dst); return NULL; }
-                *dp++ = *sp++;
-            } else { // compressed block
-                if (sp + 1 >= send) { free(dst); return NULL; }
-                uint8_t b1 = *sp++;
-                uint8_t b2 = *sp++;
-                int length = (b1 >> 4) + 3; // length of copy
-                size_t disp = (size_t)((((b1 & 0x0F) << 8) | b2) + 1); // displacement
 
-                if ((size_t)(dp - dst) < disp) { free(dst); return NULL; }
-
-                uint8_t *src_copy = dp - disp;
-                for (int k = 0; k < length && dp < dend; ++k) {
-                    *dp++ = *src_copy++;
+        for (int bit = 0; bit < 8 && dp < dend; ++bit, flags <<= 1) {
+            if ((flags & 0x80) == 0) {
+                if (sp >= send) {
+                    free(dst);
+                    return NULL;
                 }
+                *dp++ = *sp++;
+                continue;
             }
-            flags <<= 1;
+
+            if (sp + 1 >= send) {
+                free(dst);
+                return NULL;
+            }
+
+            uint8_t b1 = *sp++;
+            uint8_t b2 = *sp++;
+
+            int length = (b1 >> 4) + 3;
+            size_t disp = (size_t)((((b1 & 0x0F) << 8) | b2) + 1);
+
+            if ((size_t)(dp - dst) < disp) {
+                free(dst);
+                return NULL;
+            }
+
+            uint8_t *copy = dp - disp;
+            for (int k = 0; k < length && dp < dend; ++k)
+                *dp++ = *copy++;
         }
     }
 
-    if (dp != dend) { free(dst); return NULL; }
+    if (dp != dend) {
+        free(dst);
+        return NULL;
+    }
+
     *outSize = decSize;
     return dst;
 }
-    
+
 // lz10 compression
 uint8_t *lz10_compress(const uint8_t *src, size_t srcSize, size_t *outSize) {
     if (!src || !outSize)
         return NULL;
 
-    // worst-case size
+    // worst case: all literals + one flag byte per 8 symbols
     size_t maxSize = 4 + srcSize + ((srcSize + 7) >> 3);
     uint8_t *out = calloc(maxSize, 1);
     if (!out)
@@ -121,10 +136,9 @@ uint8_t *lz10_compress(const uint8_t *src, size_t srcSize, size_t *outSize) {
         }
 
         if (bestLen > 2) {
-            // compressed block
-            *flagp |= mask;
+            *flagp |= mask; // mark token as back-reference
 
-            size_t lenField = bestLen - (2 + 1);
+            size_t lenField = bestLen - 3;
             size_t posField = bestPos - 1;
 
             *pak++ = (uint8_t)((lenField << 4) | (posField >> 8));
@@ -132,7 +146,7 @@ uint8_t *lz10_compress(const uint8_t *src, size_t srcSize, size_t *outSize) {
 
             raw += bestLen;
         } else {
-            *pak++ = *raw++; // literal byte
+            *pak++ = *raw++; // store literal as-is
         }
     }
 
