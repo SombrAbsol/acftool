@@ -50,9 +50,26 @@ static void make_outdir(char *dst, size_t dstSize, const char *path) {
 
 static void join_path(char *dst, size_t dstSize, const char *dir, const char *name) {
     #ifdef _WIN32
-    snprintf(dst, dstSize, "%s\\%s", dir, name);
+    char sep = '\\';
+    if (!dir || !*dir) {
+        snprintf(dst, dstSize, "%s", name);
+        return;
+    }
+    size_t len = strlen(dir);
+    if (dir[len - 1] == '\\' || dir[len - 1] == '/')
+        snprintf(dst, dstSize, "%s%s", dir, name);
+    else
+        snprintf(dst, dstSize, "%s\\%s", dir, name);
     #else
-    snprintf(dst, dstSize, "%s/%s", dir, name);
+    if (!dir || !*dir) {
+        snprintf(dst, dstSize, "%s", name);
+        return;
+    }
+    size_t len = strlen(dir);
+    if (dir[len - 1] == '/')
+        snprintf(dst, dstSize, "%s%s", dir, name);
+    else
+        snprintf(dst, dstSize, "%s/%s", dir, name);
     #endif
 }
 
@@ -258,7 +275,7 @@ static int extract_acf(const char *path) {
             free(outBuf);
 
             if ((i & 31u) == 31u || i == hdr.numFiles - 1) {
-                printf("\r  extracted %u/%u", i + 1, hdr.numFiles);
+                printf("\r  %s: extracted %u/%u", path, i + 1, hdr.numFiles);
                 fflush(stdout);
             }
         }
@@ -361,10 +378,7 @@ static int build_acf(const char *directory) {
     for (size_t i = 0; i < numFiles; ++i)
         compressFlags[i] = -1;
 
-    // strict validation:
-    // - keys must be NNNN.EXT
-    // - json entries must stay ordered
-    // - each key index must match its position
+    // filelist validation
     for (uint32_t i = 0; i < jsonCount; ++i) {
         const char *name = jsonNames[i];
         const int state = jsonStates[i];
@@ -376,7 +390,7 @@ static int build_acf(const char *directory) {
 
         const char *dot = strrchr(name, '.');
         if (!dot || dot == name || dot[1] == '\0') {
-            fprintf(stderr, "Invalid metadata key (expected NNNN.EXT): %s\n", name);
+            fprintf(stderr, "Invalid metadata key: expected NNNN.EXT, got %s\n", name);
             goto fail;
         }
 
@@ -385,7 +399,7 @@ static int build_acf(const char *directory) {
             !isdigit((unsigned char)name[1]) ||
             !isdigit((unsigned char)name[2]) ||
             !isdigit((unsigned char)name[3])) {
-            fprintf(stderr, "Invalid metadata key (expected 4-digit prefix): %s\n", name);
+            fprintf(stderr, "Invalid metadata key: expected 4-digit prefix, got %s\n", name);
         goto fail;
             }
 
@@ -530,9 +544,6 @@ static int build_acf(const char *directory) {
     fwrite(fat, sizeof(*fat), numFiles, out);
 
     cleanup_build(out, fat, files, compressFlags, numFiles, jsonNames, jsonStates, jsonCount);
-
-    printf("Built %s with %zu files. headerSize=0x%X dataStart=0x%X\n",
-           outname, numFiles, (unsigned)hdr.headerSize, (unsigned)hdr.dataStart);
 
     return EXIT_SUCCESS;
 
