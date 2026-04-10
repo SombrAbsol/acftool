@@ -17,17 +17,17 @@ jobs:
     name: Build Windows nightly
     runs-on: windows-2025
     timeout-minutes: 15
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
           fetch-depth: 1
-    
+
       - name: Install toolchain
         run: |
           choco install -y mingw make
-    
+
       - name: Build Windows binary
         shell: bash
         run: |
@@ -36,10 +36,12 @@ jobs:
             CC="clang --target=x86_64-w64-windows-gnu" \
             TARGET="${{ env.TARGET }}.exe" \
             LDFLAGS="-static"
-    
+
       - name: Upload Windows build artifact
         uses: actions/upload-artifact@v7
         with:
           name: ${{ env.TARGET }}-windows
-          path: ${{ env.TARGET }}.exe
+          path: |
+            ${{ env.TARGET }}.exe
+            LICENSE
           if-no-files-found: error
