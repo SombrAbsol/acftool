@@ -136,8 +136,7 @@ const char *try_get_extension(
         return defaultExt;
 
     if (!data || size == 0 || maxlength <= 0 || minlength < 0) {
-        strncpy(outExt, defaultExt, outExtSz);
-        outExt[outExtSz - 1] = '\0';
+        snprintf(outExt, outExtSz, "%s", defaultExt);
         return defaultExt;
     }
 

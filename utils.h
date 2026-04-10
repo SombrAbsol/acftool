@@ -7,12 +7,19 @@
 #include <stdint.h>
 #include <stdio.h>
 
+#ifdef _WIN32
+#ifndef S_ISDIR
+#define S_ISDIR(mode) (((mode) & _S_IFMT) == _S_IFDIR)
+#endif
+#endif
+
 // use fopen or fopen_s
 FILE *xfopen(const char *path, const char *mode);
 
 // padding
 size_t pad_size(size_t size, size_t align);
 
+// strdup implementation
 char *xstrdup(const char *s);
 
 // read an entire file into memory
