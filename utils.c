@@ -15,6 +15,15 @@
 
 #include "utils.h"
 
+FILE *xfopen(const char *path, const char *mode) {
+    #ifdef _WIN32
+    FILE *f = NULL;
+    return (fopen_s(&f, path, mode) == 0) ? f : NULL;
+    #else
+    return fopen(path, mode);
+    #endif
+}
+
 // padding
 size_t pad_size(size_t size, size_t align) {
     return (size + align - 1) & ~(align - 1);
@@ -38,7 +47,7 @@ uint8_t *read_file(const char *path, size_t *outSize) {
     if (stat(path, &st) != 0 || st.st_size < 0) return NULL;
 
     size_t size = (size_t)st.st_size;
-    FILE *f = fopen(path, "rb");
+    FILE *f = xfopen(path, "rb");
     if (!f) return NULL;
 
     uint8_t *buf = malloc(size ? size : 1);
@@ -63,7 +72,7 @@ uint8_t *read_file(const char *path, size_t *outSize) {
 int write_file(const char *path, const uint8_t *data, size_t size) {
     if (!path) return -1;
 
-    FILE *f = fopen(path, "wb");
+    FILE *f = xfopen(path, "wb");
     if (!f) return -1;
 
     if (size && data && fwrite(data, 1, size, f) != size) {
@@ -362,7 +371,7 @@ int write_json_file_states(
     if (!path || (!names && count) || (!states && count))
         return EXIT_FAILURE;
 
-    FILE *f = fopen(path, "wb");
+    FILE *f = xfopen(path, "wb");
     if (!f) return EXIT_FAILURE;
 
     fputs("{\n", f);

@@ -5,6 +5,10 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include <stdio.h>
+
+// use fopen or fopen_s
+FILE *xfopen(const char *path, const char *mode);
 
 // padding
 size_t pad_size(size_t size, size_t align);

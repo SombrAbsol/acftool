@@ -20,6 +20,12 @@
 #include "lz10.h"
 #include "utils.h"
 
+#ifdef _WIN32
+#ifndef S_ISDIR
+#define S_ISDIR(mode) (((mode) & _S_IFMT) == _S_IFDIR)
+#endif
+#endif
+
 typedef struct {
     char magic[4];       // "acf\0"
     uint32_t headerSize; // usually 0x20
@@ -41,8 +47,9 @@ static void make_index_name(char *dst, size_t dstSize, uint32_t index, const cha
 }
 
 static void make_outdir(char *dst, size_t dstSize, const char *path) {
-    strncpy(dst, path, dstSize - 1);
-    dst[dstSize - 1] = '\0';
+    if (!dst || dstSize == 0) return;
+
+    snprintf(dst, dstSize, "%s", path ? path : "");
 
     char *dot = strrchr(dst, '.');
     if (dot) *dot = '\0';
@@ -447,7 +454,7 @@ static int build_acf(const char *directory) {
     char outname[512];
     snprintf(outname, sizeof(outname), "%s.acf", directory);
 
-    out = fopen(outname, "wb");
+    out = xfopen(outname, "wb");
     if (!out) {
         fprintf(stderr, "Cannot create %s\n", outname);
         goto fail;
