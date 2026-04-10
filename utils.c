@@ -15,6 +15,7 @@
 
 #include "utils.h"
 
+// use fopen or fopen_s
 FILE *xfopen(const char *path, const char *mode) {
     #ifdef _WIN32
     FILE *f = NULL;
