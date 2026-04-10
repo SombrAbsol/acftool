@@ -21,21 +21,12 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
-        with:
-          fetch-depth: 1
-
-      - name: Install toolchain
-        run: |
-          choco install -y mingw make
 
       - name: Build Windows binary
         shell: bash
         run: |
           set -euo pipefail
-          make \
-            CC="clang --target=x86_64-w64-windows-gnu" \
-            TARGET="${{ env.TARGET }}.exe" \
-            LDFLAGS="-static"
+          make CC=clang
 
       - name: Upload Windows build artifact
         uses: actions/upload-artifact@v7
