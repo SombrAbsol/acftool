@@ -7,7 +7,7 @@ ACF archive utility for *Pokémon Ranger: Guardian Signs*. Based on [a fork of a
 
 ACF archives are used in *Pokémon Ranger: Guardian Signs* data. This tool allows you to extract the files contained in ACF archives, automatically handling decompression when needed, and to rebuild these archives. You can [download the latest nightly](#download) or [build the program from source](#building).
 
-For more information on the ACF format, see [the documentation](/doc/acf.md).
+For more information on the ACF format, see [the documentation](/docs/acf.md).
 
 ## Download
 |         | Linux | Windows |
@@ -50,15 +50,10 @@ To build an ACF archive, run `acftool -b <indir>` or `acftool --build <indir>`. 
 ```
 
 ## Building
-Dependencies: `clang` or `gcc`, `make` (optional, preferred)
-1. Clone this repository by running `git clone https://github.com/SombrAbsol/acftool`, or [download the ZIP archive](https://github.com/SombrAbsol/acftool/archive/refs/heads/main.zip) and extract it
-2. Go to the repository directory and build the project. You can run `make` if you have it installed, or one of the following commands depending on the compiler you have installed:
-```
-clang -O3 -Wall -Wextra -Werror -o acftool main.c lz10.c utils.c
-```
-```
-gcc -O3 -Wall -Wextra -Werror -o acftool main.c lz10.c utils.c
-```
+Dependencies: `clang` or `gcc`, and `make`
+1. If you don't already have them, install the dependencies
+2. Clone this repository by running `git clone https://github.com/SombrAbsol/acftool`, or [download the ZIP archive](https://github.com/SombrAbsol/acftool/archive/refs/heads/main.zip) and extract it
+3. Go to the repository directory and build the executable by running `make`
 
 ## TODO
 * Add ACZ support

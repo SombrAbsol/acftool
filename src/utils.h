@@ -31,7 +31,7 @@ int write_file(const char *path, const uint8_t *data, size_t size);
 // create a directory
 int mkdir_dir(const char *path);
 
-// extension helpers
+// extension helper
 int is_invertible(const char *ext);
 void reverse_str_inplace(char *s);
 const char *try_get_extension(

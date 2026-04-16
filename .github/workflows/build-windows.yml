@@ -33,6 +33,6 @@ jobs:
         with:
           name: ${{ env.TARGET }}-windows
           path: |
-            ${{ env.TARGET }}.exe
+            build/${{ env.TARGET }}.exe
             LICENSE
           if-no-files-found: error

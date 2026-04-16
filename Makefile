@@ -1,24 +1,28 @@
 CC := $(shell command -v clang >/dev/null 2>&1 && echo clang || echo gcc)
 CFLAGS := -O3 -Wall -Wextra -Werror
+SRC_DIR := src
+BUILD_DIR := build
 
-ifeq ($(OS),Windows_NT)
-	TARGET := acftool.exe
-else
-	TARGET := acftool
-endif
+TARGET_NAME := acftool
+TARGET := $(BUILD_DIR)/$(TARGET_NAME)$(if $(filter Windows_NT,$(OS)),.exe)
 
-SRCS := main.c lz10.c utils.c
-OBJS := $(SRCS:.c=.o)
+SRCS := $(wildcard $(SRC_DIR)/*.c)
+OBJ_DIR := $(BUILD_DIR)/$(TARGET_NAME).dir
+OBJS := $(SRCS:$(SRC_DIR)/%.c=$(OBJ_DIR)/%.o)
 
 .PHONY: all clean
 
 all: $(TARGET)
 
-$(TARGET): $(OBJS)
+$(TARGET): $(OBJS) | $(BUILD_DIR)
 	$(CC) -o $@ $^
 
-%.o: %.c
+$(OBJ_DIR)/%.o: $(SRC_DIR)/%.c
+	mkdir -p $(@D)
 	$(CC) $(CFLAGS) -c $< -o $@
 
+$(BUILD_DIR):
+	mkdir -p $@
+
 clean:
-	$(RM) $(OBJS) $(TARGET)
+	rm -rf $(BUILD_DIR)

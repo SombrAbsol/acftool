@@ -40,6 +40,6 @@ jobs:
         with:
           name: ${{ env.TARGET }}-linux
           path: |
-            ${{ env.TARGET }}
+            build/${{ env.TARGET }}
             LICENSE
           if-no-files-found: error
