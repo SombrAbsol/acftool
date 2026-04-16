@@ -31,6 +31,8 @@ To get the ACF archives, Windows users can run [TinkeDSi](https://github.com/R-Y
 6. Go to your output directory. ACF archives are located in the `data` directory
 
 ### Running acftool
+acftool is a command-line program and requires a terminal to run.
+
 #### ACF Extraction
 * To extract files from an ACF archive, run `acftool -x <in.acf>` or `acftool --extract <in.acf>`
 * To extract files from every ACF archives in a directory, run `acftool -x <indir>` or `acftool --extract <indir>`
