@@ -17,11 +17,10 @@ all: $(TARGET)
 $(TARGET): $(OBJS) | $(BUILD_DIR)
 	$(CC) -o $@ $^
 
-$(OBJ_DIR)/%.o: $(SRC_DIR)/%.c
-	mkdir -p $(@D)
+$(OBJ_DIR)/%.o: $(SRC_DIR)/%.c | $(OBJ_DIR)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-$(BUILD_DIR):
+$(BUILD_DIR) $(OBJ_DIR):
 	mkdir -p $@
 
 clean:
