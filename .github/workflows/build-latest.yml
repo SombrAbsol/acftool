@@ -25,6 +25,9 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  TARGET: acftool
+
 jobs:
   build:
     timeout-minutes: 15
@@ -32,7 +35,6 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-24.04, macos-26, windows-2025]
-        target: acftool
         include:
           - os: ubuntu-24.04
             artifact-suffix: linux
@@ -46,21 +48,21 @@ jobs:
             artifact-suffix: windows
             extension: .exe
 
-    name: Build ${{ matrix.target }} on ${{ matrix.os }}
+    name: Build ${{ env.TARGET }} on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
 
-      - name: Build ${{ matrix.target }}
-        run: make CC=clang ${{ matrix.target }}
+      - name: Build ${{ env.TARGET }}
+        run: make CC=clang
 
-      - name: Upload ${{ matrix.target }} artefact
+      - name: Upload ${{ env.TARGET }} artefact
         uses: actions/upload-artifact@v7
         with:
-          name: ${{ matrix.target }}-${{ matrix.artifact-suffix }}
+          name: ${{ env.TARGET }}-${{ matrix.artifact-suffix }}
           path: |
-            build/${{ matrix.target }}${{ matrix.extension }}
+            build/${{ env.TARGET }}${{ matrix.extension }}
             LICENSE
           if-no-files-found: error
