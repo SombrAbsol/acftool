@@ -27,6 +27,8 @@ all: $(TARGET)
 $(TARGET): $(OBJS)
 	$(CC) $(LDFLAGS) -o $@ $^ $(LDLIBS)
 
+$(TARGET_NAME): $(TARGET)
+
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c | $(OBJ_DIR)
 	$(CC) $(CFLAGS) $(CPPFLAGS) -c $< -o $@
 
@@ -37,7 +39,7 @@ $(OBJ_DIR):
 
 install: all
 	install -d $(DESTDIR)$(PREFIX)/bin
-	install -m 755 $(TARGET) $(DESTDIR)$(PREFIX)/bin/$(TARGET_NAME)$(EXTENSION)
+	install -s -m 755 $(TARGET) $(DESTDIR)$(PREFIX)/bin/$(TARGET_NAME)$(EXTENSION)
 
 uninstall:
 	rm -f $(DESTDIR)$(PREFIX)/bin/$(TARGET_NAME)$(EXTENSION)
