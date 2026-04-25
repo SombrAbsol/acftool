@@ -20,7 +20,7 @@ OBJ_DIR := $(BUILD_DIR)/$(TARGET_NAME).dir
 OBJS := $(patsubst $(SRC_DIR)/%.c,$(OBJ_DIR)/%.o,$(SRCS))
 DEPS := $(OBJS:.o=.d)
 
-.PHONY: all clean install uninstall
+.PHONY: all clean install uninstall release
 
 all: $(TARGET)
 
@@ -36,6 +36,9 @@ $(OBJ_DIR):
 	mkdir -p $@
 
 -include $(DEPS)
+
+release: $(TARGET)
+	strip $(TARGET)
 
 install: all
 	install -d $(DESTDIR)$(PREFIX)/bin
