@@ -48,7 +48,7 @@ jobs:
             artifact-suffix: windows
             extension: .exe
 
-    name: Build ${{ env.TARGET }} on ${{ matrix.os }}
+    name: Build acftool on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
 
     steps:
