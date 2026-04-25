@@ -60,9 +60,9 @@ To build an ACF archive, run `acftool -b <indir>` or `acftool --build <indir>`. 
 Dependencies: `clang` or `gcc`, and `make`
 1. If you don't already have them, install the dependencies
 2. Clone this repository by running `git clone https://github.com/SombrAbsol/acftool`, or [download the ZIP archive](https://github.com/SombrAbsol/acftool/archive/refs/heads/main.zip) and extract it
-3. Go to the repository directory and build the executable by running `make`
+3. Go to the repository directory and build the executable by running `make`, or `make release` if you want to strip the generated build
 
-Operating systems that use the Unix file system (such as Linux and macOS) can then run `sudo make install` to install acftool system-wide. `sudo make uninstall` removes it.
+Operating systems that use the Unix file system (such as Linux and macOS) can then run `sudo make install` to install a stripped acftool system-wide. `sudo make uninstall` removes it.
 
 ## TODO
 * Add ACZ support
