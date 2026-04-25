@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 
-name: Latest
+name: CI
 
 on:
   push:
@@ -17,6 +17,7 @@ on:
       - "src/**"
       - "include/**"
       - "Makefile"
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -53,13 +54,21 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
+
+      - name: Install LLVM (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get install -y llvm
+
+      - name: Install LLVM (macOS)
+        if: runner.os == 'macOS'
+        run: brew install llvm
 
       - name: Build ${{ env.TARGET }}
         run: make CC=clang release
 
       - name: Upload ${{ env.TARGET }} artefact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ env.TARGET }}-${{ matrix.artifact-suffix }}
           path: |
