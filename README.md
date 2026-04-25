@@ -5,7 +5,7 @@ SPDX-License-Identifier: MIT
 -->
 
 # acftool
-<a href="https://github.com/SombrAbsol/acftool/actions/workflows/ci.yml"><img src="https://github.com/SombrAbsol/acftool/actions/workflows/ci.yml/badge.svg" alt="Latest"></a>
+<a href="https://github.com/SombrAbsol/acftool/actions/workflows/ci.yml"><img src="https://github.com/SombrAbsol/acftool/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
 <a href="https://opensource.org/license/mit"><img src="https://img.shields.io/badge/license-MIT-blue" alt="License: MIT (Expat)"></a>
 
 ACF archive utility for *Pokémon Ranger: Guardian Signs*. Based on [a fork of acfdump](https://github.com/SombrAbsol/acfdump), an ACF extraction tool originally written by Barubary in Java and ported here to C.
