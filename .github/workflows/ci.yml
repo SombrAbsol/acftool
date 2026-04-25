@@ -41,12 +41,15 @@ jobs:
         include:
           - os: ubuntu-24.04
             artifact-suffix: linux
+            extension: ""
 
           - os: macos-26
             artifact-suffix: macos
+            extension: ""
 
           - os: windows-2025
             artifact-suffix: windows
+            extension: .exe
 
     name: Build acftool on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
@@ -73,7 +76,7 @@ jobs:
         with:
           name: ${{ env.TARGET }}-${{ matrix.artifact-suffix }}
           path: |
-            build/${{ env.TARGET }}*
+            build/${{ env.TARGET }}${{ matrix.extension }}
             LICENSE
           if-no-files-found: error
           retention-days: 7
@@ -88,9 +91,6 @@ jobs:
       contents: write
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
-
       - name: Download all artefacts
         uses: actions/download-artifact@v8
         with:
@@ -98,25 +98,16 @@ jobs:
 
       - name: Package ZIPs
         run: |
-          TARGET_NAME=$(make -pn CC=clang 2>/dev/null \
-            | awk '/^TARGET_NAME :=/ { print $3 }')
-          EXT=$(make -pn CC=clang 2>/dev/null \
-            | awk '/^EXTENSION :=/ { print $3 }')
-
-          declare -A OS_SUFFIX=(
-            [ubuntu-24.04]=linux
-            [macos-26]=macos
-            [windows-2025]=windows
-          )
-
-          for os in "${!OS_SUFFIX[@]}"; do
-            suffix="${OS_SUFFIX[$os]}"
-            dir="artifacts/${TARGET_NAME}-${suffix}"
+          for suffix in linux macos windows; do
+            dir="artifacts/${{ env.TARGET }}-${suffix}"
+            ext=""
+            [ "$suffix" = "windows" ] && ext=".exe"
 
             mkdir -p "pkg/${suffix}"
-            mv "${dir}/build/${TARGET_NAME}${EXT}" "pkg/${suffix}/"
-            mv "${dir}/LICENSE"                    "pkg/${suffix}/"
-            (cd "pkg/${suffix}" && zip "../../${TARGET_NAME}-${suffix}.zip" "${TARGET_NAME}${EXT}" LICENSE)
+            mv "${dir}/build/${{ env.TARGET }}${ext}" "pkg/${suffix}/"
+            mv "${dir}/LICENSE"                       "pkg/${suffix}/"
+
+            (cd "pkg/${suffix}" && zip "../../${{ env.TARGET }}-${suffix}.zip" "${{ env.TARGET }}${ext}" LICENSE)
           done
 
       - name: Update latest release
@@ -127,4 +118,7 @@ jobs:
           prerelease: true
           body: |
             Automated build from commit ${{ github.sha }}.
-          files: pkg/*.zip
+          files: |
+            ${{ env.TARGET }}-linux.zip
+            ${{ env.TARGET }}-macos.zip
+            ${{ env.TARGET }}-windows.zip
