@@ -10,7 +10,7 @@ SPDX-License-Identifier: MIT
 
 ACF archive utility for *Pokémon Ranger: Guardian Signs*. Based on [a fork of acfdump](https://github.com/SombrAbsol/acfdump), an ACF extraction tool originally written by Barubary in Java and ported here to C.
 
-ACF archives are used in *Pokémon Ranger: Guardian Signs* data. This tool allows you to extract the files contained in ACF archives, automatically handling decompression when needed, and to rebuild these archives. You can [download the latest nightly](#download) or [build the program from source](#building).
+ACF archives are used in *Pokémon Ranger: Guardian Signs* data. This tool allows you to extract the files contained in ACF archives, automatically handling decompression when needed, and to rebuild these archives. You can [download the latest build](#download) or [build the program from source](#building).
 
 For more information on the ACF format, see [the documentation](/docs/acf.md).
 
