@@ -48,7 +48,7 @@ jobs:
           - os: windows-2025
             artifact-suffix: windows
 
-    name: Build ${{ env.TARGET }} on ${{ matrix.os }}
+    name: Build acftool on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
 
     steps:
