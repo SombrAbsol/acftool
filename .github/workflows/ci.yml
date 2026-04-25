@@ -8,16 +8,16 @@ on:
   push:
     branches: [ "main" ]
     paths:
+      - ".github/workflows/ci.yml"
       - "src/**"
       - "include/**"
-      - ".github/workflows/ci.yml"
       - "Makefile"
   pull_request:
     branches: [ "main" ]
     paths:
+      - ".github/workflows/ci.yml"
       - "src/**"
       - "include/**"
-      - ".github/workflows/ci.yml"
       - "Makefile"
   workflow_dispatch:
 
@@ -79,3 +79,46 @@ jobs:
             build/${{ env.TARGET }}${{ matrix.extension }}
             LICENSE
           if-no-files-found: error
+          retention-days: 7
+
+  release-latest:
+    name: Update latest release
+    needs: build
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download all artefacts
+        uses: actions/download-artifact@v8
+        with:
+          path: artifacts/
+
+      - name: Package ZIPs
+        run: |
+          for suffix in linux macos windows; do
+            dir="artifacts/${{ env.TARGET }}-${suffix}"
+            ext=""
+            [ "$suffix" = "windows" ] && ext=".exe"
+
+            mkdir -p "pkg/${suffix}"
+            mv "${dir}/${{ env.TARGET }}${ext}" "pkg/${suffix}/"
+            mv "${dir}/LICENSE"                 "pkg/${suffix}/"
+
+            (cd "pkg/${suffix}" && zip "../../${{ env.TARGET }}-${suffix}.zip" "${{ env.TARGET }}${ext}" LICENSE)
+          done
+
+      - name: Update latest release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: latest
+          name: Latest build
+          prerelease: true
+          body: |
+            Automated build from commit ${{ github.sha }}.
+          files: |
+            ${{ env.TARGET }}-linux.zip
+            ${{ env.TARGET }}-macos.zip
+            ${{ env.TARGET }}-windows.zip
