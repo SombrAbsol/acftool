@@ -54,7 +54,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Install LLVM (Linux)
         if: runner.os == 'Linux'
@@ -62,13 +62,15 @@ jobs:
 
       - name: Install LLVM (macOS)
         if: runner.os == 'macOS'
-        run: brew install llvm
+        run: |
+          brew install llvm
+          echo "$(brew --prefix llvm)/bin" >> $GITHUB_PATH
 
       - name: Build ${{ env.TARGET }}
         run: make CC=clang release
 
       - name: Upload ${{ env.TARGET }} artefact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ env.TARGET }}-${{ matrix.artifact-suffix }}
           path: |
