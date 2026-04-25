@@ -96,7 +96,7 @@ jobs:
         with:
           path: artifacts/
 
-      - name: Package ZIPs
+     - name: Package ZIPs
         run: |
           for suffix in linux macos windows; do
             dir="artifacts/${{ env.TARGET }}-${suffix}"
@@ -104,8 +104,8 @@ jobs:
             [ "$suffix" = "windows" ] && ext=".exe"
 
             mkdir -p "pkg/${suffix}"
-            mv "${dir}/${{ env.TARGET }}${ext}" "pkg/${suffix}/"
-            mv "${dir}/LICENSE"                 "pkg/${suffix}/"
+            mv "${dir}/build/${{ env.TARGET }}${ext}" "pkg/${suffix}/"
+            mv "${dir}/LICENSE"                        "pkg/${suffix}/"
 
             (cd "pkg/${suffix}" && zip "../../${{ env.TARGET }}-${suffix}.zip" "${{ env.TARGET }}${ext}" LICENSE)
           done
