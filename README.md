@@ -17,7 +17,7 @@ For more information on the ACF format, see [the documentation](/docs/acf.md).
 ## Download
 |        | Linux | macOS | Windows |
 | ------ | ----- | ----- | ------- |
-| Latest | [Download](https://nightly.link/SombrAbsol/acftool/workflows/ci/main/acftool-linux.zip) | [Download](https://nightly.link/SombrAbsol/acftool/workflows/ci/main/acftool-macos.zip) | [Download](https://nightly.link/SombrAbsol/acftool/workflows/ci/main/acftool-windows.zip) |
+| Latest | [Download](/releases/download/latest/acftool-linux.zip) | [Download](/releases/download/latest/acftool-macos.zip) | [Download](/releases/download/latest/acftool-windows.zip) |
 
 ## Usage
 ### Dumping the ROM
