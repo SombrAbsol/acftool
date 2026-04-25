@@ -1,6 +1,11 @@
+<!--
+SPDX-FileCopyrightText: 2026 SombrAbsol
+
+SPDX-License-Identifier: MIT
+-->
+
 # acftool
-<a href="https://github.com/SombrAbsol/acftool/actions/workflows/build-linux.yml"><img src="https://github.com/SombrAbsol/acftool/actions/workflows/build-linux.yml/badge.svg" alt="Linux Nightly"></a>
-<a href="https://github.com/SombrAbsol/acftool/actions/workflows/build-windows.yml"><img src="https://github.com/SombrAbsol/acftool/actions/workflows/build-windows.yml/badge.svg" alt="Windows Nightly"></a>
+<a href="https://github.com/SombrAbsol/acftool/actions/workflows/build-latest.yml"><img src="https://github.com/SombrAbsol/acftool/actions/workflows/build-latest.yml/badge.svg" alt="Latest"></a>
 <a href="https://opensource.org/license/mit"><img src="https://img.shields.io/badge/license-MIT-blue" alt="License: MIT (Expat)"></a>
 
 ACF archive utility for *Pokémon Ranger: Guardian Signs*. Based on [a fork of acfdump](https://github.com/SombrAbsol/acfdump), an ACF extraction tool originally created by Barubary in Java and ported here to C.
@@ -10,10 +15,9 @@ ACF archives are used in *Pokémon Ranger: Guardian Signs* data. This tool allow
 For more information on the ACF format, see [the documentation](/docs/acf.md).
 
 ## Download
-|         | Linux | Windows |
-| ------- | ----- | ------- |
-| Release |       |         |
-| Nightly | [Download](https://nightly.link/SombrAbsol/acftool/workflows/build-linux/main/acftool-linux.zip) | [Download](https://nightly.link/SombrAbsol/acftool/workflows/build-windows/main/acftool-windows.zip) |
+|        | Linux | macOS | Windows |
+| ------ | ----- | ----- | ------- |
+| Latest | [Download](https://nightly.link/SombrAbsol/acftool/workflows/build-latest/main/acftool-linux.zip) | [Download](https://nightly.link/SombrAbsol/acftool/workflows/build-latest/main/acftool-macos.zip) | [Download](https://nightly.link/SombrAbsol/acftool/workflows/build-latest/main/acftool-windows.zip) |
 
 ## Usage
 ### Dumping the ROM
@@ -58,9 +62,11 @@ Dependencies: `clang` or `gcc`, and `make`
 2. Clone this repository by running `git clone https://github.com/SombrAbsol/acftool`, or [download the ZIP archive](https://github.com/SombrAbsol/acftool/archive/refs/heads/main.zip) and extract it
 3. Go to the repository directory and build the executable by running `make`
 
+Operating systems that use the Unix file system (such as Linux and macOS) can then run `sudo make install` to install acftool system-wide. `sudo make uninstall` removes it.
+
 ## TODO
 * Add ACZ support
-* Add containers (FPKD, NPCD…) support(?)
+* Better ACF and ACZ documentation
 
 ## Credits
 * acftool by [SombrAbsol](https://github.com/SombrAbsol)

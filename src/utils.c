@@ -1,4 +1,10 @@
-// Copyright (c) 2026 SombrAbsol
+/*
+ * Utility functions.
+ *
+ * SPDX-FileCopyrightText: 2026 SombrAbsol
+ *
+ * SPDX-License-Identifier: MIT
+ */
 
 #include <ctype.h>
 #include <stddef.h>
@@ -7,7 +13,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
-
 #ifdef _WIN32
 #include <direct.h>
 #define strcasecmp _stricmp
@@ -15,68 +20,129 @@
 
 #include "utils.h"
 
-// use fopen or fopen_s
+/*
+ * Cross-platform wrapper around fopen. Use fopen_s on Windows, or fopen
+ * otherwise.
+ */
 FILE *xfopen(const char *path, const char *mode) {
-    #ifdef _WIN32
+#ifdef _WIN32
     FILE *f = NULL;
-    return (fopen_s(&f, path, mode) == 0) ? f : NULL;
-    #else
-    return fopen(path, mode);
-    #endif
+    if (fopen_s(&f, path, mode) != 0) {
+        fprintf(stderr, "xfopen: failed to open '%s' with mode '%s'\n", path,
+                mode);
+        return NULL;
+    }
+    return f;
+#else
+    FILE *f = fopen(path, mode);
+    if (!f) {
+        fprintf(stderr, "xfopen: failed to open '%s' with mode '%s'\n", path,
+                mode);
+    }
+    return f;
+#endif
 }
 
-// padding
+/*
+ * Round a value up to the next multiple of a power-of-two alignment.
+ */
 size_t pad_size(size_t size, size_t align) {
     return (size + align - 1) & ~(align - 1);
 }
 
-// strdup implementation
+/*
+ * strdup replacement using malloc.
+ */
 char *xstrdup(const char *s) {
-    if (!s) return NULL;
+    if (!s)
+        return NULL;
 
-    size_t len = strlen(s) + 1;
+    size_t len = strlen(s) + 1; // +1 for null terminator
     char *p = malloc(len);
-    if (p) memcpy(p, s, len);
+    if (p)
+        memcpy(p, s, len);
+
     return p;
 }
 
-// read entire file into memory
-uint8_t *read_file(const char *path, size_t *outSize) {
-    if (!path || !outSize) return NULL;
+/*
+ * Read an entire file into memory.
+ */
+unsigned char *read_file(const char *path, size_t *out_size) {
+    FILE *f = NULL;
+    unsigned char *buf = NULL;
 
-    struct stat st;
-    if (stat(path, &st) != 0 || st.st_size < 0) return NULL;
-
-    size_t size = (size_t)st.st_size;
-    FILE *f = xfopen(path, "rb");
-    if (!f) return NULL;
-
-    uint8_t *buf = malloc(size ? size : 1);
-    if (!buf) {
-        fclose(f);
+    f = xfopen(path, "rb");
+    if (!f) {
+        fprintf(stderr, "read_file: cannot open '%s'\n", path);
         return NULL;
     }
 
-    size_t got = fread(buf, 1, size, f);
+    if (fseek(f, 0, SEEK_END) != 0) {
+        fprintf(stderr, "read_file: fseek failed for '%s'\n", path);
+        goto error;
+    }
+
+#if defined(_WIN32)
+    long long sz = _ftelli64(f); // 64-bit position to support files > 2 GB
+#else
+    long long sz = ftello(f);
+#endif
+
+    if (sz < 0) {
+        fprintf(stderr, "read_file: invalid file size for '%s'\n", path);
+        goto error;
+    }
+
+    if ((unsigned long long)sz >
+        SIZE_MAX) { // guard against truncation on 32-bit platforms
+        fprintf(stderr, "read_file: file too large for memory allocation\n");
+        goto error;
+    }
+
+    size_t size = (size_t)sz;
+
+    rewind(f); // seek back to the start before reading
+
+    buf = malloc(size);
+    if (!buf) {
+        fprintf(stderr, "read_file: memory allocation failed (%zu bytes)\n",
+                size);
+        goto error;
+    }
+
+    if (fread(buf, 1, size, f) != size) {
+        fprintf(stderr, "read_file: failed to read entire file '%s'\n", path);
+        goto error;
+    }
+
     fclose(f);
 
-    if (got != size) {
-        free(buf);
-        return NULL;
-    }
-
-    *outSize = size;
+    if (out_size)
+        *out_size = size;
     return buf;
+
+error:
+    if (f)
+        fclose(f);
+    free(buf);
+    return NULL;
 }
 
-// write data to a file
+/*
+ * Write bytes to a file, creating or truncating it as needed.
+ */
 int write_file(const char *path, const uint8_t *data, size_t size) {
-    if (!path) return -1;
+    if (!path)
+        return -1;
 
     FILE *f = xfopen(path, "wb");
-    if (!f) return -1;
+    if (!f)
+        return -1;
 
-    if (size && data && fwrite(data, 1, size, f) != size) {
+    if (size && data &&
+        fwrite(data, 1, size, f) !=
+            size) { // skip fwrite if there is nothing to write
         fclose(f);
         return -1;
     }
@@ -85,41 +151,50 @@ int write_file(const char *path, const uint8_t *data, size_t size) {
     return EXIT_SUCCESS;
 }
 
-// create directory if needed
+/*
+ * Create a directory if it does not already exist.
+ */
 int mkdir_dir(const char *path) {
-    #ifdef _WIN32
-    if (_mkdir(path) == 0) return 0;
-    #else
-    if (mkdir(path, 0755) == 0) return 0;
-    #endif
-
+#ifdef _WIN32
+    if (_mkdir(path) == 0)
+        return 0;
+#else
+    if (mkdir(path, 0755) == 0)
+        return 0;
+#endif
     struct stat st;
     return (stat(path, &st) == 0 && S_ISDIR(st.st_mode)) ? 0 : -1;
 }
 
-// check if extension needs reversing
+/*
+ * Check whether a file extension matches one of the known Nintendo container
+ * magic strings whose bytes appear reversed in the file header, or not.
+ */
 int is_invertible(const char *ext) {
-    static const char *const invertible[] = {
-        "RGCN", "RLCN", "RECN", "RNAN", "RCSN", "RTFN"
-    };
+    static const char *const invertible[] = {"RGCN", "RLCN", "RECN",
+                                             "RNAN", "RCSN", "RTFN"};
 
     for (size_t i = 0; i < sizeof(invertible) / sizeof(invertible[0]); ++i) {
         if (strcasecmp(ext, invertible[i]) == 0)
-            return EXIT_FAILURE;
+            return 1;
     }
 
-    return EXIT_SUCCESS;
+    return 0;
 }
 
-// reverse string in place
+/*
+ * Reverse a null-terminated string in place.
+ */
 void reverse_str_inplace(char *s) {
-    if (!s) return;
+    if (!s)
+        return;
 
     size_t i = 0;
     size_t j = strlen(s);
-    if (j < 2) return;
+    if (j < 2) // nothing to reverse
+        return;
 
-    --j;
+    --j; // convert length to index of last character
     while (i < j) {
         char t = s[i];
         s[i++] = s[j];
@@ -127,12 +202,12 @@ void reverse_str_inplace(char *s) {
     }
 }
 
-// try to detect file extension from data
-const char *try_get_extension(
-    const uint8_t *data, size_t size,
-    int maxlength, int minlength,
-    const char *defaultExt, char *outExt, size_t outExtSz
-) {
+/*
+ * Attempt to derive a file extension from the leading bytes of data.
+ */
+const char *try_get_extension(const uint8_t *data, size_t size, int maxlength,
+                              int minlength, const char *defaultExt,
+                              char *outExt, size_t outExtSz) {
     if (!defaultExt || !outExt || outExtSz == 0)
         return defaultExt;
 
@@ -144,18 +219,18 @@ const char *try_get_extension(
     int n = 0;
     for (int i = 0; i < maxlength && (size_t)i < size; ++i) {
         unsigned char c = data[i];
-        if (!isalnum(c))
+        if (!isalnum(c)) // stop at the first non-alphanumeric byte
             break;
 
         if ((size_t)n + 1 < outExtSz)
             outExt[n++] = (char)c;
         else
-            break;
+            break; // outExt buffer is full
     }
 
     outExt[n] = '\0';
 
-    if (n <= minlength)
+    if (n <= minlength) // too few bytes to form a useful extension
         return defaultExt;
 
     if (is_invertible(outExt))
@@ -164,18 +239,24 @@ const char *try_get_extension(
     return outExt;
 }
 
-// escape minimal set of characters
-char *escape_json_string(const char *s, size_t maxlen) {
-    char *esc = malloc(maxlen * 2 + 1);
-    if (!esc) return NULL;
+/*
+ * Escape a set of characters for JSON output.
+ */
+char *escape_json_string(const char *s, size_t len) {
+    char *esc = malloc(len * 6 + 1); // worst case
+    if (!esc) {
+        fprintf(stderr, "escape_json_string: allocation failed\n");
+        return NULL;
+    }
 
     char *d = esc;
-    for (size_t i = 0; i < maxlen && s[i]; ++i) {
+
+    for (size_t i = 0; i < len; i++) {
         unsigned char c = (unsigned char)s[i];
 
         if (c == '"' || c == '\\') {
             *d++ = '\\';
-            *d++ = (char)c;
+            *d++ = c;
         } else if (c == '\n') {
             *d++ = '\\';
             *d++ = 'n';
@@ -183,7 +264,7 @@ char *escape_json_string(const char *s, size_t maxlen) {
             *d++ = '\\';
             *d++ = 'r';
         } else {
-            *d++ = (char)c;
+            *d++ = c;
         }
     }
 
@@ -191,18 +272,28 @@ char *escape_json_string(const char *s, size_t maxlen) {
     return esc;
 }
 
-// undo escaping
+/*
+ * Reverse escape_json_string for supported sequences.
+ */
 char *unescape_json_string(const char *start, size_t len) {
-    char *out = malloc(len + 1);
-    if (!out) return NULL;
+    char *out = malloc(
+        len + 1); // output is at most as long as the input plus null terminator
+    if (!out) {
+        fprintf(stderr, "unescape_json_string: allocation failed\n");
+        return NULL;
+    }
 
     char *d = out;
-    for (size_t i = 0; i < len; ++i) {
+
+    for (size_t i = 0; i < len; i++) {
         if (start[i] == '\\' && i + 1 < len) {
-            ++i;
-            if (start[i] == 'n') *d++ = '\n';
-            else if (start[i] == 'r') *d++ = '\r';
-            else *d++ = start[i];
+            i++; // consume the backslash and handle the next character
+            if (start[i] == 'n')
+                *d++ = '\n';
+            else if (start[i] == 'r')
+                *d++ = '\r';
+            else
+                *d++ = start[i]; // pass through other escape sequences as-is
         } else {
             *d++ = start[i];
         }
@@ -212,17 +303,20 @@ char *unescape_json_string(const char *start, size_t len) {
     return out;
 }
 
+/*
+ * Advance the input pointer past any leading whitespace characters.
+ */
 static void skip_ws(const char **p) {
     while (**p && isspace((unsigned char)**p))
         ++(*p);
 }
 
-int read_json_file_states(
-    const char *path,
-    char ***outNames,
-    int **outStates,
-    uint32_t *outCount
-) {
+/*
+ * Parse a flat JSON object, mapping the literals true, false, and null to
+ * the integers 1, 0, and -1 respectively.
+ */
+int read_json_file_states(const char *path, char ***outNames, int **outStates,
+                          uint32_t *outCount) {
     if (!path || !outNames || !outStates || !outCount)
         return EXIT_FAILURE;
 
@@ -232,9 +326,10 @@ int read_json_file_states(
 
     size_t size = 0;
     uint8_t *buf = read_file(path, &size);
-    if (!buf) return EXIT_FAILURE;
+    if (!buf)
+        return EXIT_FAILURE;
 
-    char *json = malloc(size + 1);
+    char *json = malloc(size + 1); // +1 for the null terminator added below
     if (!json) {
         free(buf);
         return EXIT_FAILURE;
@@ -245,7 +340,7 @@ int read_json_file_states(
     free(buf);
 
     const char *p = json;
-    uint32_t capacity = 16;
+    uint32_t capacity = 16; // initial array capacity; doubled on overflow
     uint32_t count = 0;
 
     char **names = malloc(capacity * sizeof(*names));
@@ -258,7 +353,8 @@ int read_json_file_states(
     }
 
     skip_ws(&p);
-    if (*p != '{') goto error;
+    if (*p != '{')
+        goto error;
     ++p;
 
     for (;;) {
@@ -274,7 +370,10 @@ int read_json_file_states(
         ++p;
 
         const char *start = p;
-        while (*p && !(*p == '"' && p[-1] != '\\'))
+        while (*p &&
+               !(*p == '"' &&
+                 p[-1] !=
+                     '\\')) // scan to the closing quote, treating \" as escaped
             ++p;
         if (!*p)
             goto error;
@@ -294,7 +393,7 @@ int read_json_file_states(
 
         skip_ws(&p);
 
-        int state = -2;
+        int state = -2; // sentinel: -2 = not yet parsed
         if (strncmp(p, "null", 4) == 0) {
             state = -1;
             p += 4;
@@ -310,7 +409,7 @@ int read_json_file_states(
         }
 
         if (count == capacity) {
-            capacity *= 2;
+            capacity *= 2; // double the array capacity
 
             char **tmpNames = realloc(names, capacity * sizeof(*names));
             if (!tmpNames) {
@@ -344,7 +443,7 @@ int read_json_file_states(
     }
 
     skip_ws(&p);
-    if (*p != '\0')
+    if (*p != '\0') // trailing garbage after the closing brace
         goto error;
 
     free(json);
@@ -353,7 +452,7 @@ int read_json_file_states(
     *outCount = count;
     return EXIT_SUCCESS;
 
-    error:
+error:
     for (uint32_t i = 0; i < count; ++i)
         free(names[i]);
     free(names);
@@ -362,17 +461,18 @@ int read_json_file_states(
     return EXIT_FAILURE;
 }
 
-int write_json_file_states(
-    const char *path,
-    char *const *names,
-    const int *states,
-    uint32_t count
-) {
+/*
+ * Write a flat JSON object, mapping the literals true, false, and null to the
+ * integers 1, 0, and -1 respectively.
+ */
+int write_json_file_states(const char *path, char *const *names,
+                           const int *states, uint32_t count) {
     if (!path || (!names && count) || (!states && count))
         return EXIT_FAILURE;
 
     FILE *f = xfopen(path, "wb");
-    if (!f) return EXIT_FAILURE;
+    if (!f)
+        return EXIT_FAILURE;
 
     fputs("{\n", f);
 
@@ -388,17 +488,23 @@ int write_json_file_states(
             return EXIT_FAILURE;
         }
 
+        // map integer state back to its JSON literal
         const char *value = NULL;
-        if (states[i] == -1) value = "null";
-        else if (states[i] == 0) value = "false";
-        else if (states[i] == 1) value = "true";
+        if (states[i] == -1)
+            value = "null";
+        else if (states[i] == 0)
+            value = "false";
+        else if (states[i] == 1)
+            value = "true";
         else {
             free(esc);
             fclose(f);
             return EXIT_FAILURE;
         }
 
-        fprintf(f, "  \"%s\": %s%s\n", esc, value, (i + 1 < count) ? "," : "");
+        fprintf(f, "  \"%s\": %s%s\n", esc, value,
+                (i + 1 < count) ? ","
+                                : ""); // omit trailing comma on last entry
         free(esc);
     }
 
@@ -407,10 +513,14 @@ int write_json_file_states(
     return EXIT_SUCCESS;
 }
 
+/*
+ * Free an array of strings.
+ */
 void free_string_array(char **strings, uint32_t count) {
-    if (!strings) return;
+    if (!strings)
+        return;
 
-    for (uint32_t i = 0; i < count; ++i)
+    for (uint32_t i = 0; i < count; i++)
         free(strings[i]);
 
     free(strings);

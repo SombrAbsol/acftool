@@ -1,3 +1,11 @@
+/*
+ * Utility functions.
+ *
+ * SPDX-FileCopyrightText: 2026 SombrAbsol
+ *
+ * SPDX-License-Identifier: MIT
+ */
+
 #pragma author SombrAbsol
 #pragma description ACF Archive (Pokémon Ranger: Guardian Signs)
 #pragma magic [ 61 63 66 00 ] @ 0x00

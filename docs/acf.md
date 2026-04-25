@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2026 SombrAbsol
+
+SPDX-License-Identifier: MIT
+-->
+
 Approximate documentation of the ACF file format. Written by [Barubary on GBATemp](https://gbatemp.net/threads/acf-files.211897/post-2638536).
 ```
 {
