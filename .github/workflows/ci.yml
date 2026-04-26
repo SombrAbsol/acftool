@@ -9,8 +9,8 @@ on:
     branches: [ "main" ]
     paths:
       - ".github/workflows/ci.yml"
-      - "src/**"
       - "include/**"
+      - "src/**"
       - "Makefile"
   pull_request:
     branches: [ "main" ]
@@ -78,6 +78,8 @@ jobs:
           path: |
             build/${{ env.TARGET }}${{ matrix.extension }}
             LICENSE
+            README.md
+
           if-no-files-found: error
           retention-days: 7
 
@@ -106,6 +108,7 @@ jobs:
             mkdir -p "pkg/${suffix}"
             mv "${dir}/build/${{ env.TARGET }}${ext}" "pkg/${suffix}/"
             mv "${dir}/LICENSE"                       "pkg/${suffix}/"
+            mv "${dir}/README.md"                     "pkg/${suffix}/"
 
             (cd "pkg/${suffix}" && zip "../../${{ env.TARGET }}-${suffix}.zip" "${{ env.TARGET }}${ext}" LICENSE)
           done
