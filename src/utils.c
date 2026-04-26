@@ -44,10 +44,11 @@ FILE *xfopen(const char *path, const char *mode) {
 }
 
 /*
- * Round a value up to the next multiple of a power-of-two alignment.
+ * Compute the number of padding bytes required to align 'n' to the next
+ * 4-byte boundary.
  */
-size_t pad_size(size_t size, size_t align) {
-    return (size + align - 1) & ~(align - 1);
+uint32_t pad4(uint32_t n) {
+    return (4 - (n & 3)) & 3;
 }
 
 /*
@@ -61,8 +62,18 @@ char *xstrdup(const char *s) {
     char *p = malloc(len);
     if (p)
         memcpy(p, s, len);
+    else
+        fprintf(stderr, "xstrdup: memory allocation failed\n");
 
     return p;
+}
+
+/*
+ * Check whether a file exists at the given path.
+ */
+int file_exists(const char *path) {
+    struct stat st;
+    return stat(path, &st) == 0;
 }
 
 /*
@@ -134,17 +145,18 @@ error:
  */
 int write_file(const char *path, const uint8_t *data, size_t size) {
     if (!path)
-        return -1;
+        return EXIT_FAILURE;
 
     FILE *f = xfopen(path, "wb");
     if (!f)
-        return -1;
+        return EXIT_FAILURE;
 
     if (size && data &&
         fwrite(data, 1, size, f) !=
             size) { // skip fwrite if there is nothing to write
+        fprintf(stderr, "write_file: failed to write '%s'\n", path);
         fclose(f);
-        return -1;
+        return EXIT_FAILURE;
     }
 
     fclose(f);
@@ -163,7 +175,10 @@ int mkdir_dir(const char *path) {
         return 0;
 #endif
     struct stat st;
-    return (stat(path, &st) == 0 && S_ISDIR(st.st_mode)) ? 0 : -1;
+    if (stat(path, &st) == 0 && S_ISDIR(st.st_mode))
+        return 0;
+    fprintf(stderr, "mkdir_dir: failed to create '%s'\n", path);
+    return -1;
 }
 
 /*
@@ -245,7 +260,7 @@ const char *try_get_extension(const uint8_t *data, size_t size, int maxlength,
 char *escape_json_string(const char *s, size_t len) {
     char *esc = malloc(len * 6 + 1); // worst case
     if (!esc) {
-        fprintf(stderr, "escape_json_string: allocation failed\n");
+        fprintf(stderr, "escape_json_string: memory allocation failed\n");
         return NULL;
     }
 
@@ -279,7 +294,7 @@ char *unescape_json_string(const char *start, size_t len) {
     char *out = malloc(
         len + 1); // output is at most as long as the input plus null terminator
     if (!out) {
-        fprintf(stderr, "unescape_json_string: allocation failed\n");
+        fprintf(stderr, "unescape_json_string: memory allocation failed\n");
         return NULL;
     }
 
@@ -353,8 +368,11 @@ int read_json_file_states(const char *path, char ***outNames, int **outStates,
     }
 
     skip_ws(&p);
-    if (*p != '{')
+    if (*p != '{') {
+        fprintf(stderr,
+                "read_json_file_states: expected '{' at start of object\n");
         goto error;
+    }
     ++p;
 
     for (;;) {
@@ -365,8 +383,11 @@ int read_json_file_states(const char *path, char ***outNames, int **outStates,
             break;
         }
 
-        if (*p != '"')
+        if (*p != '"') {
+            fprintf(stderr,
+                    "read_json_file_states: expected '\"' before key\n");
             goto error;
+        }
         ++p;
 
         const char *start = p;
@@ -375,8 +396,10 @@ int read_json_file_states(const char *path, char ***outNames, int **outStates,
                  p[-1] !=
                      '\\')) // scan to the closing quote, treating \" as escaped
             ++p;
-        if (!*p)
+        if (!*p) {
+            fprintf(stderr, "read_json_file_states: unterminated string key\n");
             goto error;
+        }
 
         size_t len = (size_t)(p - start);
         char *name = unescape_json_string(start, len);
@@ -386,6 +409,7 @@ int read_json_file_states(const char *path, char ***outNames, int **outStates,
 
         skip_ws(&p);
         if (*p != ':') {
+            fprintf(stderr, "read_json_file_states: expected ':' after key\n");
             free(name);
             goto error;
         }
@@ -404,6 +428,8 @@ int read_json_file_states(const char *path, char ***outNames, int **outStates,
             state = 1;
             p += 4;
         } else {
+            fprintf(stderr, "read_json_file_states: expected true, false, or "
+                            "null as value\n");
             free(name);
             goto error;
         }
@@ -413,6 +439,8 @@ int read_json_file_states(const char *path, char ***outNames, int **outStates,
 
             char **tmpNames = realloc(names, capacity * sizeof(*names));
             if (!tmpNames) {
+                fprintf(stderr,
+                        "read_json_file_states: memory allocation failed\n");
                 free(name);
                 goto error;
             }
@@ -420,6 +448,8 @@ int read_json_file_states(const char *path, char ***outNames, int **outStates,
 
             int *tmpStates = realloc(states, capacity * sizeof(*states));
             if (!tmpStates) {
+                fprintf(stderr,
+                        "read_json_file_states: memory allocation failed\n");
                 free(name);
                 goto error;
             }
@@ -439,12 +469,16 @@ int read_json_file_states(const char *path, char ***outNames, int **outStates,
             ++p;
             break;
         }
+        fprintf(stderr,
+                "read_json_file_states: expected ',' or '}' after value\n");
         goto error;
     }
 
     skip_ws(&p);
-    if (*p != '\0') // trailing garbage after the closing brace
+    if (*p != '\0') { // trailing garbage after the closing brace
+        fprintf(stderr, "read_json_file_states: trailing data after '}'\n");
         goto error;
+    }
 
     free(json);
     *outNames = names;

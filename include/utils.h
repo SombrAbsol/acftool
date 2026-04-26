@@ -25,9 +25,10 @@
 FILE *xfopen(const char *path, const char *mode);
 
 /*
- * Round 'size' up to the nearest multiple of 'align'.
+ * Compute the number of padding bytes required to align 'n' to the next
+ * 4-byte boundary.
  */
-size_t pad_size(size_t size, size_t align);
+uint32_t pad4(uint32_t n);
 
 /*
  * strdup replacement using malloc.

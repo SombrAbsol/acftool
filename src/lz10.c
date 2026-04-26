@@ -37,7 +37,8 @@ uint8_t *lz10_decompress(const uint8_t *src, size_t srcSize, size_t *outSize) {
 
     uint8_t *dst = malloc(decSize);
     if (!dst) {
-        fprintf(stderr, "lz10_decompress: allocation failed (%u bytes)\n",
+        fprintf(stderr,
+                "lz10_decompress: memory allocation failed (%u bytes)\n",
                 decSize);
         return NULL;
     }
@@ -141,7 +142,7 @@ uint8_t *lz10_compress(const uint8_t *src, size_t srcSize, size_t *outSize) {
 
     uint8_t *out = calloc(maxSize, 1);
     if (!out) {
-        fprintf(stderr, "lz10_compress: allocation failed\n");
+        fprintf(stderr, "lz10_compress: memory allocation failed\n");
         return NULL;
     }
 
