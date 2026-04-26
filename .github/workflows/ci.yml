@@ -110,7 +110,7 @@ jobs:
             mv "${dir}/LICENSE"                       "pkg/${suffix}/"
             mv "${dir}/README.md"                     "pkg/${suffix}/"
 
-            (cd "pkg/${suffix}" && zip "../../${{ env.TARGET }}-${suffix}.zip" "${{ env.TARGET }}${ext}" LICENSE)
+            (cd "pkg/${suffix}" && zip "../../${{ env.TARGET }}-${suffix}.zip" "${{ env.TARGET }}${ext}" LICENSE README.md)
           done
 
       - name: Update latest release
