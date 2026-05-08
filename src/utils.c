@@ -6,6 +6,8 @@
  * SPDX-License-Identifier: MIT
  */
 
+#include "utils.h"
+
 #include <ctype.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -18,26 +20,23 @@
 #define strcasecmp _stricmp
 #endif
 
-#include "utils.h"
-
 /*
  * Cross-platform wrapper around fopen. Use fopen_s on Windows, or fopen
  * otherwise.
  */
-FILE *xfopen(const char *path, const char *mode) {
+FILE *xfopen(const char *path, const char *mode)
+{
 #ifdef _WIN32
     FILE *f = NULL;
     if (fopen_s(&f, path, mode) != 0) {
-        fprintf(stderr, "xfopen: failed to open '%s' with mode '%s'\n", path,
-                mode);
+        fprintf(stderr, "xfopen: failed to open '%s' with mode '%s'\n", path, mode);
         return NULL;
     }
     return f;
 #else
     FILE *f = fopen(path, mode);
     if (!f) {
-        fprintf(stderr, "xfopen: failed to open '%s' with mode '%s'\n", path,
-                mode);
+        fprintf(stderr, "xfopen: failed to open '%s' with mode '%s'\n", path, mode);
     }
     return f;
 #endif
@@ -47,23 +46,27 @@ FILE *xfopen(const char *path, const char *mode) {
  * Compute the number of padding bytes required to align 'n' to the next
  * 4-byte boundary.
  */
-uint32_t pad4(uint32_t n) {
+uint32_t pad4(uint32_t n)
+{
     return (4 - (n & 3)) & 3;
 }
 
 /*
  * strdup replacement using malloc.
  */
-char *xstrdup(const char *s) {
-    if (!s)
+char *xstrdup(const char *s)
+{
+    if (!s) {
         return NULL;
+    }
 
     size_t len = strlen(s) + 1; // +1 for null terminator
     char *p = malloc(len);
-    if (p)
+    if (p) {
         memcpy(p, s, len);
-    else
+    } else {
         fprintf(stderr, "xstrdup: memory allocation failed\n");
+    }
 
     return p;
 }
@@ -71,7 +74,8 @@ char *xstrdup(const char *s) {
 /*
  * Check whether a file exists at the given path.
  */
-int file_exists(const char *path) {
+int file_exists(const char *path)
+{
     struct stat st;
     return stat(path, &st) == 0;
 }
@@ -79,7 +83,8 @@ int file_exists(const char *path) {
 /*
  * Read an entire file into memory.
  */
-unsigned char *read_file(const char *path, size_t *out_size) {
+unsigned char *read_file(const char *path, size_t *out_size)
+{
     FILE *f = NULL;
     unsigned char *buf = NULL;
 
@@ -105,8 +110,7 @@ unsigned char *read_file(const char *path, size_t *out_size) {
         goto error;
     }
 
-    if ((unsigned long long)sz >
-        SIZE_MAX) { // guard against truncation on 32-bit platforms
+    if ((unsigned long long)sz > SIZE_MAX) { // guard against truncation on 32-bit platforms
         fprintf(stderr, "read_file: file too large for memory allocation\n");
         goto error;
     }
@@ -117,8 +121,7 @@ unsigned char *read_file(const char *path, size_t *out_size) {
 
     buf = malloc(size);
     if (!buf) {
-        fprintf(stderr, "read_file: memory allocation failed (%zu bytes)\n",
-                size);
+        fprintf(stderr, "read_file: memory allocation failed (%zu bytes)\n", size);
         goto error;
     }
 
@@ -129,13 +132,15 @@ unsigned char *read_file(const char *path, size_t *out_size) {
 
     fclose(f);
 
-    if (out_size)
+    if (out_size) {
         *out_size = size;
+    }
     return buf;
 
 error:
-    if (f)
+    if (f) {
         fclose(f);
+    }
     free(buf);
     return NULL;
 }
@@ -143,17 +148,18 @@ error:
 /*
  * Write bytes to a file, creating or truncating it as needed.
  */
-int write_file(const char *path, const uint8_t *data, size_t size) {
-    if (!path)
+int write_file(const char *path, const uint8_t *data, size_t size)
+{
+    if (!path) {
         return EXIT_FAILURE;
+    }
 
     FILE *f = xfopen(path, "wb");
-    if (!f)
+    if (!f) {
         return EXIT_FAILURE;
+    }
 
-    if (size && data &&
-        fwrite(data, 1, size, f) !=
-            size) { // skip fwrite if there is nothing to write
+    if (size && data && fwrite(data, 1, size, f) != size) { // skip fwrite if there is nothing to write
         fprintf(stderr, "write_file: failed to write '%s'\n", path);
         fclose(f);
         return EXIT_FAILURE;
@@ -166,17 +172,21 @@ int write_file(const char *path, const uint8_t *data, size_t size) {
 /*
  * Create a directory if it does not already exist.
  */
-int mkdir_dir(const char *path) {
+int mkdir_dir(const char *path)
+{
 #ifdef _WIN32
-    if (_mkdir(path) == 0)
+    if (_mkdir(path) == 0) {
         return 0;
+    }
 #else
-    if (mkdir(path, 0755) == 0)
+    if (mkdir(path, 0755) == 0) {
         return 0;
+    }
 #endif
     struct stat st;
-    if (stat(path, &st) == 0 && S_ISDIR(st.st_mode))
+    if (stat(path, &st) == 0 && S_ISDIR(st.st_mode)) {
         return 0;
+    }
     fprintf(stderr, "mkdir_dir: failed to create '%s'\n", path);
     return -1;
 }
@@ -185,13 +195,14 @@ int mkdir_dir(const char *path) {
  * Check whether a file extension matches one of the known Nintendo container
  * magic strings whose bytes appear reversed in the file header, or not.
  */
-int is_invertible(const char *ext) {
-    static const char *const invertible[] = {"RGCN", "RLCN", "RECN",
-                                             "RNAN", "RCSN", "RTFN"};
+int is_invertible(const char *ext)
+{
+    static const char *const invertible[] = { "RGCN", "RLCN", "RECN", "RNAN", "RCSN", "RTFN" };
 
     for (size_t i = 0; i < sizeof(invertible) / sizeof(invertible[0]); ++i) {
-        if (strcasecmp(ext, invertible[i]) == 0)
+        if (strcasecmp(ext, invertible[i]) == 0) {
             return 1;
+        }
     }
 
     return 0;
@@ -200,14 +211,17 @@ int is_invertible(const char *ext) {
 /*
  * Reverse a null-terminated string in place.
  */
-void reverse_str_inplace(char *s) {
-    if (!s)
+void reverse_str_inplace(char *s)
+{
+    if (!s) {
         return;
+    }
 
     size_t i = 0;
     size_t j = strlen(s);
-    if (j < 2) // nothing to reverse
+    if (j < 2) { // nothing to reverse
         return;
+    }
 
     --j; // convert length to index of last character
     while (i < j) {
@@ -220,11 +234,11 @@ void reverse_str_inplace(char *s) {
 /*
  * Attempt to derive a file extension from the leading bytes of data.
  */
-const char *try_get_extension(const uint8_t *data, size_t size, int maxlength,
-                              int minlength, const char *defaultExt,
-                              char *outExt, size_t outExtSz) {
-    if (!defaultExt || !outExt || outExtSz == 0)
+const char *try_get_extension(const uint8_t *data, size_t size, int maxlength, int minlength, const char *defaultExt, char *outExt, size_t outExtSz)
+{
+    if (!defaultExt || !outExt || outExtSz == 0) {
         return defaultExt;
+    }
 
     if (!data || size == 0 || maxlength <= 0 || minlength < 0) {
         snprintf(outExt, outExtSz, "%s", defaultExt);
@@ -234,22 +248,26 @@ const char *try_get_extension(const uint8_t *data, size_t size, int maxlength,
     int n = 0;
     for (int i = 0; i < maxlength && (size_t)i < size; ++i) {
         unsigned char c = data[i];
-        if (!isalnum(c)) // stop at the first non-alphanumeric byte
+        if (!isalnum(c)) { // stop at the first non-alphanumeric byte
             break;
+        }
 
-        if ((size_t)n + 1 < outExtSz)
+        if ((size_t)n + 1 < outExtSz) {
             outExt[n++] = (char)c;
-        else
+        } else {
             break; // outExt buffer is full
+        }
     }
 
     outExt[n] = '\0';
 
-    if (n <= minlength) // too few bytes to form a useful extension
+    if (n <= minlength) { // too few bytes to form a useful extension
         return defaultExt;
+    }
 
-    if (is_invertible(outExt))
+    if (is_invertible(outExt)) {
         reverse_str_inplace(outExt);
+    }
 
     return outExt;
 }
@@ -257,7 +275,8 @@ const char *try_get_extension(const uint8_t *data, size_t size, int maxlength,
 /*
  * Escape a set of characters for JSON output.
  */
-char *escape_json_string(const char *s, size_t len) {
+char *escape_json_string(const char *s, size_t len)
+{
     char *esc = malloc(len * 6 + 1); // worst case
     if (!esc) {
         fprintf(stderr, "escape_json_string: memory allocation failed\n");
@@ -290,7 +309,8 @@ char *escape_json_string(const char *s, size_t len) {
 /*
  * Reverse escape_json_string for supported sequences.
  */
-char *unescape_json_string(const char *start, size_t len) {
+char *unescape_json_string(const char *start, size_t len)
+{
     char *out = malloc(
         len + 1); // output is at most as long as the input plus null terminator
     if (!out) {
@@ -303,12 +323,13 @@ char *unescape_json_string(const char *start, size_t len) {
     for (size_t i = 0; i < len; i++) {
         if (start[i] == '\\' && i + 1 < len) {
             i++; // consume the backslash and handle the next character
-            if (start[i] == 'n')
+            if (start[i] == 'n') {
                 *d++ = '\n';
-            else if (start[i] == 'r')
+            } else if (start[i] == 'r') {
                 *d++ = '\r';
-            else
+            } else {
                 *d++ = start[i]; // pass through other escape sequences as-is
+            }
         } else {
             *d++ = start[i];
         }
@@ -321,19 +342,22 @@ char *unescape_json_string(const char *start, size_t len) {
 /*
  * Advance the input pointer past any leading whitespace characters.
  */
-static void skip_ws(const char **p) {
-    while (**p && isspace((unsigned char)**p))
+static void skip_ws(const char **p)
+{
+    while (**p && isspace((unsigned char)**p)) {
         ++(*p);
+    }
 }
 
 /*
  * Parse a flat JSON object, mapping the literals true, false, and null to
  * the integers 1, 0, and -1 respectively.
  */
-int read_json_file_states(const char *path, char ***outNames, int **outStates,
-                          uint32_t *outCount) {
-    if (!path || !outNames || !outStates || !outCount)
+int read_json_file_states(const char *path, char ***outNames, int **outStates, uint32_t *outCount)
+{
+    if (!path || !outNames || !outStates || !outCount) {
         return EXIT_FAILURE;
+    }
 
     *outNames = NULL;
     *outStates = NULL;
@@ -341,8 +365,9 @@ int read_json_file_states(const char *path, char ***outNames, int **outStates,
 
     size_t size = 0;
     uint8_t *buf = read_file(path, &size);
-    if (!buf)
+    if (!buf) {
         return EXIT_FAILURE;
+    }
 
     char *json = malloc(size + 1); // +1 for the null terminator added below
     if (!json) {
@@ -370,7 +395,7 @@ int read_json_file_states(const char *path, char ***outNames, int **outStates,
     skip_ws(&p);
     if (*p != '{') {
         fprintf(stderr,
-                "read_json_file_states: expected '{' at start of object\n");
+            "read_json_file_states: expected '{' at start of object\n");
         goto error;
     }
     ++p;
@@ -385,17 +410,15 @@ int read_json_file_states(const char *path, char ***outNames, int **outStates,
 
         if (*p != '"') {
             fprintf(stderr,
-                    "read_json_file_states: expected '\"' before key\n");
+                "read_json_file_states: expected '\"' before key\n");
             goto error;
         }
         ++p;
 
         const char *start = p;
-        while (*p &&
-               !(*p == '"' &&
-                 p[-1] !=
-                     '\\')) // scan to the closing quote, treating \" as escaped
+        while (*p && !(*p == '"' && p[-1] != '\\')) { // scan to the closing quote, treating \" as escaped
             ++p;
+        }
         if (!*p) {
             fprintf(stderr, "read_json_file_states: unterminated string key\n");
             goto error;
@@ -403,8 +426,9 @@ int read_json_file_states(const char *path, char ***outNames, int **outStates,
 
         size_t len = (size_t)(p - start);
         char *name = unescape_json_string(start, len);
-        if (!name)
+        if (!name) {
             goto error;
+        }
         ++p;
 
         skip_ws(&p);
@@ -440,7 +464,7 @@ int read_json_file_states(const char *path, char ***outNames, int **outStates,
             char **tmpNames = realloc(names, capacity * sizeof(*names));
             if (!tmpNames) {
                 fprintf(stderr,
-                        "read_json_file_states: memory allocation failed\n");
+                    "read_json_file_states: memory allocation failed\n");
                 free(name);
                 goto error;
             }
@@ -449,7 +473,7 @@ int read_json_file_states(const char *path, char ***outNames, int **outStates,
             int *tmpStates = realloc(states, capacity * sizeof(*states));
             if (!tmpStates) {
                 fprintf(stderr,
-                        "read_json_file_states: memory allocation failed\n");
+                    "read_json_file_states: memory allocation failed\n");
                 free(name);
                 goto error;
             }
@@ -470,7 +494,7 @@ int read_json_file_states(const char *path, char ***outNames, int **outStates,
             break;
         }
         fprintf(stderr,
-                "read_json_file_states: expected ',' or '}' after value\n");
+            "read_json_file_states: expected ',' or '}' after value\n");
         goto error;
     }
 
@@ -487,8 +511,9 @@ int read_json_file_states(const char *path, char ***outNames, int **outStates,
     return EXIT_SUCCESS;
 
 error:
-    for (uint32_t i = 0; i < count; ++i)
+    for (uint32_t i = 0; i < count; ++i) {
         free(names[i]);
+    }
     free(names);
     free(states);
     free(json);
@@ -499,14 +524,16 @@ error:
  * Write a flat JSON object, mapping the literals true, false, and null to the
  * integers 1, 0, and -1 respectively.
  */
-int write_json_file_states(const char *path, char *const *names,
-                           const int *states, uint32_t count) {
-    if (!path || (!names && count) || (!states && count))
+int write_json_file_states(const char *path, char *const *names, const int *states, uint32_t count)
+{
+    if (!path || (!names && count) || (!states && count)) {
         return EXIT_FAILURE;
+    }
 
     FILE *f = xfopen(path, "wb");
-    if (!f)
+    if (!f) {
         return EXIT_FAILURE;
+    }
 
     fputs("{\n", f);
 
@@ -524,21 +551,20 @@ int write_json_file_states(const char *path, char *const *names,
 
         // map integer state back to its JSON literal
         const char *value = NULL;
-        if (states[i] == -1)
+        if (states[i] == -1) {
             value = "null";
-        else if (states[i] == 0)
+        } else if (states[i] == 0) {
             value = "false";
-        else if (states[i] == 1)
+        } else if (states[i] == 1) {
             value = "true";
-        else {
+        } else {
             free(esc);
             fclose(f);
             return EXIT_FAILURE;
         }
 
         fprintf(f, "  \"%s\": %s%s\n", esc, value,
-                (i + 1 < count) ? ","
-                                : ""); // omit trailing comma on last entry
+            (i + 1 < count) ? "," : ""); // omit trailing comma on last entry
         free(esc);
     }
 
@@ -550,12 +576,15 @@ int write_json_file_states(const char *path, char *const *names,
 /*
  * Free an array of strings.
  */
-void free_string_array(char **strings, uint32_t count) {
-    if (!strings)
+void free_string_array(char **strings, uint32_t count)
+{
+    if (!strings) {
         return;
+    }
 
-    for (uint32_t i = 0; i < count; i++)
+    for (uint32_t i = 0; i < count; i++) {
         free(strings[i]);
+    }
 
     free(strings);
 }

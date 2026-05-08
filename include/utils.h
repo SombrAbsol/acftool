@@ -64,9 +64,7 @@ void reverse_str_inplace(char *s);
 /*
  * Attempt to derive a file extension from the leading bytes of data.
  */
-const char *try_get_extension(const uint8_t *data, size_t size, int maxlength,
-                              int minlength, const char *defaultExt,
-                              char *outExt, size_t outExtSz);
+const char *try_get_extension(const uint8_t *data, size_t size, int maxlength, int minlength, const char *defaultExt, char *outExt, size_t outExtSz);
 
 /*
  * (Un)escape a set of characters for JSON output.
@@ -78,10 +76,8 @@ char *unescape_json_string(const char *start, size_t len);
  * Parse/write a flat JSON object, mapping the literals true, false, and null to
  * the integers 1, 0, and -1 respectively.
  */
-int read_json_file_states(const char *path, char ***outNames, int **outStates,
-                          uint32_t *outCount);
-int write_json_file_states(const char *path, char *const *names,
-                           const int *states, uint32_t count);
+int read_json_file_states(const char *path, char ***outNames, int **outStates, uint32_t *outCount);
+int write_json_file_states(const char *path, char *const *names, const int *states, uint32_t count);
 
 /*
  * Free an array of strings.

@@ -12,7 +12,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
-
 #ifdef _WIN32
 #include <direct.h>
 #include <io.h>
@@ -27,7 +26,7 @@
 #include "utils.h"
 
 typedef struct {
-    char magic[4];       // "acf\0"
+    char magic[4]; // "acf\0"
     uint32_t headerSize; // usually 0x20
     uint32_t dataStart;
     uint32_t numFiles;
@@ -46,61 +45,66 @@ typedef struct {
  * Write a zero-padded four-digit decimal index followed by a dot and an
  * extension.
  */
-static void make_index_name(char *dst, size_t dstSize, uint32_t index,
-                            const char *ext) {
-    snprintf(dst, dstSize, "%04u.%s", index,
-             ext ? ext : "bin"); // fall back to .bin if no extension
+static void make_index_name(char *dst, size_t dstSize, uint32_t index, const char *ext)
+{
+    snprintf(dst, dstSize, "%04u.%s", index, ext ? ext : "bin"); // fall back to .bin if no extension
 }
 
 /*
  * Derive the output directory name from an archive path by stripping the file
  * extension.
  */
-static void make_outdir(char *dst, size_t dstSize, const char *path) {
-    if (!dst || dstSize == 0)
+static void make_outdir(char *dst, size_t dstSize, const char *path)
+{
+    if (!dst || dstSize == 0) {
         return;
+    }
 
     snprintf(dst, dstSize, "%s", path ? path : "");
 
     char *dot = strrchr(dst, '.'); // find the last dot to locate the extension
-    if (dot)
+    if (dot) {
         *dot = '\0'; // truncate at the dot to strip the extension
+    }
 }
 
 /*
  * Join a directory and a name into a single path.
  */
-static void join_path(char *dst, size_t dstSize, const char *dir,
-                      const char *name) {
+static void join_path(char *dst, size_t dstSize, const char *dir, const char *name)
+{
 #ifdef _WIN32
     if (!dir || !*dir) {
         snprintf(dst, dstSize, "%s", name);
         return;
     }
+
     size_t len = strlen(dir);
-    if (dir[len - 1] == '\\' ||
-        dir[len - 1] == '/') // already has a trailing separator
+    if (dir[len - 1] == '\\' || dir[len - 1] == '/') { // already has a trailing separator
         snprintf(dst, dstSize, "%s%s", dir, name);
-    else
+    } else {
         snprintf(dst, dstSize, "%s\\%s", dir, name);
+    }
 #else
     if (!dir || !*dir) {
         snprintf(dst, dstSize, "%s", name);
         return;
     }
+
     size_t len = strlen(dir);
-    if (dir[len - 1] == '/') // already has a trailing separator
+    if (dir[len - 1] == '/') { // already has a trailing separator
         snprintf(dst, dstSize, "%s%s", dir, name);
-    else
+    } else {
         snprintf(dst, dstSize, "%s/%s", dir, name);
+    }
 #endif
 }
 
 /*
  * Store a heap copy of a name at metaNames[index].
  */
-static int set_meta_name(char **metaNames, uint32_t count, uint32_t index,
-                         const char *name) {
+static int set_meta_name(char **metaNames, uint32_t count, uint32_t index, const char *name)
+{
     (void)count; // unused; kept for a consistent signature
     metaNames[index] = xstrdup(name);
     return metaNames[index] ? EXIT_SUCCESS : EXIT_FAILURE;
@@ -109,7 +113,8 @@ static int set_meta_name(char **metaNames, uint32_t count, uint32_t index,
 /*
  * Store a fallback "NNNN.bin" name.
  */
-static int set_meta_bin_name(char **metaNames, uint32_t count, uint32_t index) {
+static int set_meta_bin_name(char **metaNames, uint32_t count, uint32_t index)
+{
     char name[32];
     make_index_name(name, sizeof(name), index, "bin");
     return set_meta_name(metaNames, count, index, name);
@@ -118,8 +123,8 @@ static int set_meta_bin_name(char **metaNames, uint32_t count, uint32_t index) {
 /*
  * Release all resources allocated during an extract operation.
  */
-static void cleanup_extract(uint8_t *fileData, char **metaNames,
-                            int *metaStates, uint32_t numFiles) {
+static void cleanup_extract(uint8_t *fileData, char **metaNames, int *metaStates, uint32_t numFiles)
+{
     free_string_array(metaNames, numFiles);
     free(metaStates);
     free(fileData);
@@ -128,17 +133,17 @@ static void cleanup_extract(uint8_t *fileData, char **metaNames,
 /*
  * Release all resources allocated during a build operation.
  */
-static void cleanup_build(FILE *out, FATEntry *fat, char **files,
-                          int *compressFlags, uint32_t numFiles,
-                          char **jsonNames, int *jsonStates,
-                          uint32_t jsonCount) {
-    if (out)
+static void cleanup_build(FILE *out, FATEntry *fat, char **files, int *compressFlags, uint32_t numFiles, char **jsonNames, int *jsonStates, uint32_t jsonCount)
+{
+    if (out) {
         fclose(out);
+    }
     free(fat);
 
     if (files) {
-        for (uint32_t i = 0; i < numFiles; ++i)
+        for (uint32_t i = 0; i < numFiles; ++i) {
             free(files[i]);
+        }
     }
     free(files);
     free(compressFlags);
@@ -150,14 +155,17 @@ static void cleanup_build(FILE *out, FATEntry *fat, char **files,
  * Return a pointer to the filename component of a path, skipping any leading
  * directory segments.
  */
-static const char *path_basename(const char *path) {
+static const char *path_basename(const char *path)
+{
     const char *base = path;
-    if (!path)
+    if (!path) {
         return "";
+    }
 
     for (const char *p = path; *p; ++p) {
-        if (*p == '/' || *p == '\\') // handle both Unix and Windows separators
+        if (*p == '/' || *p == '\\') { // handle both Unix and Windows separators
             base = p + 1;
+        }
     }
 
     return base;
@@ -167,9 +175,11 @@ static const char *path_basename(const char *path) {
  * Extract all files from an ACF archive into a sibling directory with the same
  * name minus the extension.
  */
-static int extract_acf(const char *path) {
-    if (!path)
+static int extract_acf(const char *path)
+{
+    if (!path) {
         return EXIT_FAILURE;
+    }
 
     size_t fileSize = 0;
     uint8_t *fileData = read_file(path, &fileSize);
@@ -188,17 +198,14 @@ static int extract_acf(const char *path) {
     memcpy(&hdr, fileData, sizeof(hdr));
 
     if (memcmp(hdr.magic, "acf", 3) != 0) {
-        fprintf(stderr, "extract_acf: %s does not have an 'acf\\0' header\n",
-                path);
+        fprintf(stderr, "extract_acf: %s does not have an 'acf\\0' header\n", path);
         free(fileData);
         return EXIT_FAILURE;
     }
 
     size_t fatOffset = hdr.headerSize;
-    if (fatOffset > fileSize ||
-        hdr.numFiles > (fileSize - fatOffset) / sizeof(FATEntry)) {
-        fprintf(stderr, "extract_acf: FAT table in %s exceeds file size\n",
-                path);
+    if (fatOffset > fileSize || hdr.numFiles > (fileSize - fatOffset) / sizeof(FATEntry)) {
+        fprintf(stderr, "extract_acf: FAT table in %s exceeds file size\n", path);
         free(fileData);
         return EXIT_FAILURE;
     }
@@ -212,10 +219,8 @@ static int extract_acf(const char *path) {
     (void)mkdir_dir(outdir);
 
     // allocate at least 1 element to avoid passing zero to calloc
-    char **metaNames =
-        calloc(hdr.numFiles ? hdr.numFiles : 1, sizeof(*metaNames));
-    int *metaStates =
-        calloc(hdr.numFiles ? hdr.numFiles : 1, sizeof(*metaStates));
+    char **metaNames = calloc(hdr.numFiles ? hdr.numFiles : 1, sizeof(*metaNames));
+    int *metaStates = calloc(hdr.numFiles ? hdr.numFiles : 1, sizeof(*metaStates));
     if (!metaNames || !metaStates) {
         fprintf(stderr, "extract_acf: memory allocation failed\n");
         cleanup_extract(fileData, metaNames, metaStates, hdr.numFiles);
@@ -257,15 +262,10 @@ static int extract_acf(const char *path) {
 
         if (e.inputSize > 0) { // the entry is compressed
             if (dataOffset + (size_t)e.inputSize > fileSize) {
-                fprintf(stderr,
-                        "extract_acf: entry %u: compressed data exceeds file "
-                        "size\n",
-                        i);
-                if (set_meta_bin_name(metaNames, hdr.numFiles, i) !=
-                    EXIT_SUCCESS) {
+                fprintf(stderr, "extract_acf: entry %u: compressed data exceeds file size\n", i);
+                if (set_meta_bin_name(metaNames, hdr.numFiles, i) != EXIT_SUCCESS) {
                     fprintf(stderr, "extract_acf: memory allocation failed\n");
-                    cleanup_extract(fileData, metaNames, metaStates,
-                                    hdr.numFiles);
+                    cleanup_extract(fileData, metaNames, metaStates, hdr.numFiles);
                     return EXIT_FAILURE;
                 }
                 metaStates[i] = -1;
@@ -277,17 +277,12 @@ static int extract_acf(const char *path) {
                 if (outBuf) {
                     compressed = 1;
                 } else {
-                    fprintf(stderr,
-                            "extract_acf: decompression failed for entry %u, "
-                            "saving raw\n",
-                            i);
+                    fprintf(stderr, "extract_acf: decompression failed for entry %u, saving raw\n", i);
                     outSize = (size_t)e.inputSize;
                     outBuf = malloc(outSize ? outSize : 1);
                     if (!outBuf) {
-                        fprintf(stderr,
-                                "extract_acf: memory allocation failed\n");
-                        cleanup_extract(fileData, metaNames, metaStates,
-                                        hdr.numFiles);
+                        fprintf(stderr, "extract_acf: memory allocation failed\n");
+                        cleanup_extract(fileData, metaNames, metaStates, hdr.numFiles);
                         return EXIT_FAILURE;
                     }
                     memcpy(outBuf, src, outSize);
@@ -297,22 +292,17 @@ static int extract_acf(const char *path) {
                 outBuf = malloc(outSize ? outSize : 1);
                 if (!outBuf) {
                     fprintf(stderr, "extract_acf: memory allocation failed\n");
-                    cleanup_extract(fileData, metaNames, metaStates,
-                                    hdr.numFiles);
+                    cleanup_extract(fileData, metaNames, metaStates, hdr.numFiles);
                     return EXIT_FAILURE;
                 }
                 memcpy(outBuf, src, outSize);
             }
         } else { // inputSize == 0: the entry is uncompressed; use outputSize
             if (dataOffset + (size_t)e.outputSize > fileSize) {
-                fprintf(stderr,
-                        "extract_acf: entry %u: raw data exceeds file size\n",
-                        i);
-                if (set_meta_bin_name(metaNames, hdr.numFiles, i) !=
-                    EXIT_SUCCESS) {
+                fprintf(stderr, "extract_acf: entry %u: raw data exceeds file size\n", i);
+                if (set_meta_bin_name(metaNames, hdr.numFiles, i) != EXIT_SUCCESS) {
                     fprintf(stderr, "extract_acf: memory allocation failed\n");
-                    cleanup_extract(fileData, metaNames, metaStates,
-                                    hdr.numFiles);
+                    cleanup_extract(fileData, metaNames, metaStates, hdr.numFiles);
                     return EXIT_FAILURE;
                 }
                 metaStates[i] = -1;
@@ -329,8 +319,7 @@ static int extract_acf(const char *path) {
             memcpy(outBuf, src, outSize);
         }
 
-        const char *ext = try_get_extension(outBuf, outSize, 4, 2, "bin",
-                                            extBuf, sizeof(extBuf));
+        const char *ext = try_get_extension(outBuf, outSize, 4, 2, "bin", extBuf, sizeof(extBuf));
 
         char relname[64];
         make_index_name(relname, sizeof(relname), i, ext);
@@ -338,11 +327,11 @@ static int extract_acf(const char *path) {
         char outname[768];
         join_path(outname, sizeof(outname), outdir, relname);
 
-        if (write_file(outname, outBuf, outSize) != 0)
+        if (write_file(outname, outBuf, outSize) != 0) {
             fprintf(stderr, "extract_acf: failed writing %s\n", outname);
+        }
 
-        if (set_meta_name(metaNames, hdr.numFiles, i, relname) !=
-            EXIT_SUCCESS) {
+        if (set_meta_name(metaNames, hdr.numFiles, i, relname) != EXIT_SUCCESS) {
             fprintf(stderr, "extract_acf: memory allocation failed\n");
             free(outBuf);
             cleanup_extract(fileData, metaNames, metaStates, hdr.numFiles);
@@ -354,8 +343,7 @@ static int extract_acf(const char *path) {
 
         // print progress every 32 entries and on the last one
         if ((i & 31u) == 31u || i == hdr.numFiles - 1) {
-            printf("\r  %s: extracted %u/%u", path_basename(path), i + 1,
-                   hdr.numFiles);
+            printf("\r  %s: extracted %u/%u", path_basename(path), i + 1, hdr.numFiles);
             fflush(stdout);
         }
     }
@@ -365,10 +353,8 @@ static int extract_acf(const char *path) {
     char metafile[768];
     join_path(metafile, sizeof(metafile), outdir, "filelist.json");
 
-    if (write_json_file_states(metafile, metaNames, metaStates, hdr.numFiles) !=
-        0) {
-        fprintf(stderr, "extract_acf: cannot create metadata file %s\n",
-                metafile);
+    if (write_json_file_states(metafile, metaNames, metaStates, hdr.numFiles) != 0) {
+        fprintf(stderr, "extract_acf: cannot create metadata file %s\n", metafile);
         cleanup_extract(fileData, metaNames, metaStates, hdr.numFiles);
         return EXIT_FAILURE;
     }
@@ -381,7 +367,8 @@ static int extract_acf(const char *path) {
  * Iterate over every "*.acf" file in a directory and extract each one.
  */
 #ifdef _WIN32
-static void process_directory(const char *directory) {
+static void process_directory(const char *directory)
+{
     char searchPath[512];
     snprintf(searchPath, sizeof(searchPath), "%s\\*.acf", directory);
 
@@ -401,7 +388,8 @@ static void process_directory(const char *directory) {
     _findclose(hFile);
 }
 #else
-static void process_directory(const char *directory) {
+static void process_directory(const char *directory)
+{
     DIR *dir = opendir(directory);
     if (!dir) {
         printf("Cannot open directory %s\n", directory);
@@ -428,9 +416,11 @@ static void process_directory(const char *directory) {
  * Pack the contents of a directory into a new ACF archive named, guided by the
  * filelist.json file found inside the directory.
  */
-static int build_acf(const char *directory) {
-    if (!directory)
+static int build_acf(const char *directory)
+{
+    if (!directory) {
         return EXIT_FAILURE;
+    }
 
     char metafile[512];
     join_path(metafile, sizeof(metafile), directory, "filelist.json");
@@ -439,10 +429,8 @@ static int build_acf(const char *directory) {
     int *jsonStates = NULL; // -1 = null; 0 = false; 1 = true
     uint32_t jsonCount = 0;
 
-    if (read_json_file_states(metafile, &jsonNames, &jsonStates, &jsonCount) !=
-        0) {
-        fprintf(stderr, "build_acf: metadata file not found or invalid: %s\n",
-                metafile);
+    if (read_json_file_states(metafile, &jsonNames, &jsonStates, &jsonCount) != 0) {
+        fprintf(stderr, "build_acf: metadata file not found or invalid: %s\n", metafile);
         return EXIT_FAILURE;
     }
 
@@ -461,13 +449,13 @@ static int build_acf(const char *directory) {
 
     if (!files || !compressFlags) {
         fprintf(stderr, "build_acf: memory allocation failed\n");
-        cleanup_build(NULL, NULL, files, compressFlags, numFiles, jsonNames,
-                      jsonStates, jsonCount);
+        cleanup_build(NULL, NULL, files, compressFlags, numFiles, jsonNames, jsonStates, jsonCount);
         return EXIT_FAILURE;
     }
 
-    for (uint32_t i = 0; i < numFiles; ++i)
+    for (uint32_t i = 0; i < numFiles; ++i) {
         compressFlags[i] = -1; // -1 marks entries as absent until validated
+    }
 
     // filelist validation
     for (uint32_t i = 0; i < jsonCount; ++i) {
@@ -475,38 +463,24 @@ static int build_acf(const char *directory) {
         const int state = jsonStates[i];
 
         if (!name) {
-            fprintf(stderr, "build_acf: invalid metadata entry at index %u\n",
-                    i);
+            fprintf(stderr, "build_acf: invalid metadata entry at index %u\n", i);
             goto error;
         }
 
         const char *dot = strrchr(name, '.');
         if (!dot || dot == name || dot[1] == '\0') {
-            fprintf(
-                stderr,
-                "build_acf: invalid metadata key: expected NNNN.EXT, got %s\n",
-                name);
+            fprintf(stderr, "build_acf: invalid metadata key: expected NNNN.EXT, got %s\n", name);
             goto error;
         }
 
-        if ((size_t)(dot - name) != 4 || !isdigit((unsigned char)name[0]) ||
-            !isdigit((unsigned char)name[1]) ||
-            !isdigit((unsigned char)name[2]) ||
-            !isdigit((unsigned char)name[3])) {
-            fprintf(stderr,
-                    "build_acf: invalid metadata key: expected 4-digit prefix, "
-                    "got %s\n",
-                    name);
+        if ((size_t)(dot - name) != 4 || !isdigit((unsigned char)name[0]) || !isdigit((unsigned char)name[1]) || !isdigit((unsigned char)name[2]) || !isdigit((unsigned char)name[3])) {
+            fprintf(stderr, "build_acf: invalid metadata key: expected 4-digit prefix, got %s\n", name);
             goto error;
         }
 
         long index = strtol(name, NULL, 10);
-        if (index < 0 ||
-            (uint32_t)index != i) { // entries must be contiguous and ordered
-            fprintf(stderr,
-                    "build_acf: metadata entries must be contiguous and "
-                    "ordered: expected index %04u, got %s\n",
-                    i, name);
+        if (index < 0 || (uint32_t)index != i) { // entries must be contiguous and ordered
+            fprintf(stderr, "build_acf: metadata entries must be contiguous and ordered: expected index %04u, got %s\n", i, name);
             goto error;
         }
 
@@ -572,8 +546,9 @@ static int build_acf(const char *directory) {
     }
 
     // pre-fill with the absent-entry sentinel
-    for (uint32_t i = 0; i < numFiles; ++i)
+    for (uint32_t i = 0; i < numFiles; ++i) {
         fat[i].relativeOffset = 0xFFFFFFFFu;
+    }
 
     // placeholder FAT, patched below after data is written
     if (fwrite(fat, sizeof(*fat), numFiles, out) != numFiles) {
@@ -581,7 +556,7 @@ static int build_acf(const char *directory) {
         goto error;
     }
 
-    static const unsigned char zero_pad[4] = {0};
+    static const unsigned char zero_pad[4] = { 0 };
 
     size_t offset = 0; // running byte offset into the data region
     for (uint32_t i = 0; i < numFiles; ++i) {
@@ -596,15 +571,14 @@ static int build_acf(const char *directory) {
         size_t sz = 0;
         uint8_t *buf = read_file(files[i], &sz);
         if (!buf) {
-            fprintf(stderr, "build_acf: missing file referenced by JSON: %s\n",
-                    files[i]);
+            fprintf(stderr, "build_acf: missing file referenced by JSON: %s\n", files[i]);
             goto error;
         }
 
         int doCompress = compressFlags[i];
-        if (i == 0)
-            doCompress =
-                0; // first entry is always stored raw regardless of metadata
+        if (i == 0) {
+            doCompress = 0; // first entry is always stored raw regardless of metadata
+        }
 
         fat[i].relativeOffset = (uint32_t)offset;
 
@@ -612,8 +586,7 @@ static int build_acf(const char *directory) {
             size_t compSize = 0;
             uint8_t *comp = lz10_compress(buf, sz, &compSize);
             if (!comp) {
-                fprintf(stderr, "build_acf: compression failed for %s\n",
-                        files[i]);
+                fprintf(stderr, "build_acf: compression failed for %s\n", files[i]);
                 free(buf);
                 goto error;
             }
@@ -628,8 +601,7 @@ static int build_acf(const char *directory) {
                 goto error;
             }
 
-            if (compPad && fwrite(zero_pad, 1, compPad, out) !=
-                               compPad) { // zero-fill the padding bytes
+            if (compPad && fwrite(zero_pad, 1, compPad, out) != compPad) { // zero-fill the padding bytes
                 fprintf(stderr, "build_acf: write failed for entry %u\n", i);
                 free(comp);
                 free(buf);
@@ -637,8 +609,7 @@ static int build_acf(const char *directory) {
             }
 
             fat[i].inputSize = (uint32_t)paddedComp; // padded compressed size
-            fat[i].outputSize =
-                (uint32_t)(sz + pad4((uint32_t)sz)); // padded decompressed size
+            fat[i].outputSize = (uint32_t)(sz + pad4((uint32_t)sz)); // padded decompressed size
             offset += paddedComp;
 
             free(comp);
@@ -652,8 +623,7 @@ static int build_acf(const char *directory) {
                 goto error;
             }
 
-            if (rawPad && fwrite(zero_pad, 1, rawPad, out) !=
-                              rawPad) { // zero-fill the padding bytes
+            if (rawPad && fwrite(zero_pad, 1, rawPad, out) != rawPad) { // zero-fill the padding bytes
                 fprintf(stderr, "build_acf: write failed for entry %u\n", i);
                 free(buf);
                 goto error;
@@ -668,8 +638,7 @@ static int build_acf(const char *directory) {
 
         // print progress every 32 entries and on the last one
         if ((i & 31u) == 31u || i == numFiles - 1) {
-            printf("\r  %s: packed %u/%u", path_basename(directory), i + 1,
-                   numFiles);
+            printf("\r  %s: packed %u/%u", path_basename(directory), i + 1, numFiles);
             fflush(stdout);
         }
     }
@@ -699,28 +668,25 @@ static int build_acf(const char *directory) {
         goto error;
     }
 
-    cleanup_build(out, fat, files, compressFlags, numFiles, jsonNames,
-                  jsonStates, jsonCount);
-
+    cleanup_build(out, fat, files, compressFlags, numFiles, jsonNames, jsonStates, jsonCount);
     return EXIT_SUCCESS;
 
 error:
-    cleanup_build(out, fat, files, compressFlags, numFiles, jsonNames,
-                  jsonStates, jsonCount);
+    cleanup_build(out, fat, files, compressFlags, numFiles, jsonNames, jsonStates, jsonCount);
     return EXIT_FAILURE;
 }
 
 /*
  * Command-line interface.
  */
-int main(int argc, char **argv) {
+int main(int argc, char **argv)
+{
 #ifdef _WIN32
     SetConsoleOutputCP(CP_UTF8); // ensure UTF-8 output on Windows
 #endif
 
     if (argc >= 2 && (!strcmp(argv[1], "--help") || !strcmp(argv[1], "-h"))) {
-        printf("acftool - ACF archive utility for Pokémon Ranger: Guardian "
-               "Signs\n");
+        printf("acftool - ACF archive utility for Pokémon Ranger: Guardian Signs\n");
         printf("Copyright (c) 2026 SombrAbsol\n\n");
         printf("Usage:\n");
         printf("  %s -x|--extract <in.acf|indir>  extract mode\n", argv[0]);
@@ -751,6 +717,7 @@ int main(int argc, char **argv) {
         } else {
             return extract_acf(path);
         }
+
     } else if (!strcmp(mode, "-b") || !strcmp(mode, "--build")) {
         struct stat st;
         if (stat(path, &st) != 0 || !S_ISDIR(st.st_mode)) {
@@ -760,6 +727,7 @@ int main(int argc, char **argv) {
 
         printf("Building ACF from directory: %s\n", path);
         return build_acf(path);
+
     } else {
         fprintf(stderr, "Unknown option: %s\n", mode);
         fprintf(stderr, "Try '%s --help' for more information.\n", argv[0]);
