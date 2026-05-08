@@ -27,18 +27,18 @@
 
 typedef struct {
     char magic[4]; // "acf\0"
-    uint32_t headerSize; // usually 0x20
-    uint32_t dataStart;
-    uint32_t numFiles;
-    uint32_t unknown1; // always 1
-    uint32_t unknown2; // always 0x32
-    uint32_t padding[2];
+    uint32_t headerSize; // 0x20
+    uint32_t dataStart; // absolute offset to the start of file data
+    uint32_t numFiles; // number of files, including the dummy entry
+    uint32_t unknown1; // 0x01
+    uint32_t unknown2; // 0x32
+    uint32_t padding[2]; // zero padding
 } ACFHeader;
 
 typedef struct {
-    uint32_t relativeOffset;
-    uint32_t outputSize;
-    uint32_t inputSize;
+    uint32_t relativeOffset; // offset relative to data_start; if 0xFFFFFFFF, skip this entry
+    uint32_t outputSize; // size of the output (decompressed) data; pad the output with zeros to reach this size
+    uint32_t inputSize; // size of the compressed input data if LZ10-compressed; 0 if not compressed
 } FATEntry;
 
 /*
