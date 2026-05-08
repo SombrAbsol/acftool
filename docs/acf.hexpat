@@ -19,9 +19,9 @@ enum ACFConst : u32 {
 };
 
 struct FatEntry {
-    u32 relativeOffset [[color("00FFFF")]]; // relative to dataStart
-    u32 outputSize [[color("00FF00")]]; // decompressed size
-    u32 inputSize [[color("FFAA00")]]; // compressed size (0 = raw)
+    u32 relativeOffset [[color("00FFFF")]];
+    u32 outputSize [[color("00FF00")]];
+    u32 inputSize [[color("FFAA00")]];
 };
 
 struct ACFHeader {
