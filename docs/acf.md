@@ -18,13 +18,13 @@ Used in *Pokémon Ranger: Guardian Signs* to store and optionally compress multi
 ### Header
 ```rust
 {
-  char[4] magic        // "acf\0"
-  u32     header_size  // 0x20
-  u32     data_start   // absolute offset to the start of file data
-  u32     num_files    // number of files, including the dummy entry
-  u32     unknown1     // 0x01
-  u32     unknown2     // 0x32
-  u32[2]  padding      // zero padding
+  char[4] magic       // "acf\0"
+  u32     header_size // 0x20
+  u32     data_start  // absolute offset to the start of file data
+  u32     num_files   // number of files, including the dummy entry
+  u32     unknown1    // 0x01
+  u32     unknown2    // 0x32
+  u32[2]  padding     // zero padding
 }
 ```
 
@@ -33,9 +33,9 @@ Immediately followed by `num_files` FAT entries, beginning at byte `0x20`.
 ### FAT entries
 ```rust
 {
-  u32 relative_offset  // offset relative to data_start; if 0xFFFFFFFF, skip this entry
-  u32 output_size      // size of the output (decompressed) data; pad the output with zeros to reach this size
-  u32 input_size       // size of the compressed input data if LZ10-compressed; 0 if not compressed
+  u32 relative_offset // offset relative to data_start; if 0xFFFFFFFF, skip this entry
+  u32 output_size     // size of the output (decompressed) data; pad the output with zeros to reach this size
+  u32 input_size      // size of the compressed input data if LZ10-compressed; 0 if not compressed
 }
 ```
 
