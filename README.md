@@ -65,8 +65,7 @@ Dependencies: `clang` or `gcc`, and `make`
 Operating systems that use the Unix file system (such as Linux and macOS) can then run `sudo make install` to install a stripped acftool system-wide. `sudo make uninstall` removes it.
 
 ## TODO
-* Add ACZ support
-* Better ACF and ACZ documentation
+* Add ACZ support + documentation
 
 ## Credits
 * acftool by [SombrAbsol](https://github.com/SombrAbsol)
