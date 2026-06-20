@@ -184,12 +184,12 @@ static int extract_acf(const char *path)
     size_t fileSize = 0;
     uint8_t *fileData = read_file(path, &fileSize);
     if (!fileData) {
-        fprintf(stderr, "extract_acf: cannot read %s\n", path);
+        fprintf(stderr, "extract_acf: cannot read '%s'\n", path);
         return EXIT_FAILURE;
     }
 
     if (fileSize < sizeof(ACFHeader)) {
-        fprintf(stderr, "extract_acf: %s is too small to be an ACF\n", path);
+        fprintf(stderr, "extract_acf: '%s' is too small to be an ACF\n", path);
         free(fileData);
         return EXIT_FAILURE;
     }
@@ -198,14 +198,14 @@ static int extract_acf(const char *path)
     memcpy(&hdr, fileData, sizeof(hdr));
 
     if (memcmp(hdr.magic, "acf", 3) != 0) {
-        fprintf(stderr, "extract_acf: %s does not have an 'acf\\0' header\n", path);
+        fprintf(stderr, "extract_acf: ''%s' does not have an 'acf\\0' header\n", path);
         free(fileData);
         return EXIT_FAILURE;
     }
 
     size_t fatOffset = hdr.headerSize;
     if (fatOffset > fileSize || hdr.numFiles > (fileSize - fatOffset) / sizeof(FATEntry)) {
-        fprintf(stderr, "extract_acf: FAT table in %s exceeds file size\n", path);
+        fprintf(stderr, "extract_acf: FAT table in '%s' exceeds file size\n", path);
         free(fileData);
         return EXIT_FAILURE;
     }
@@ -354,7 +354,7 @@ static int extract_acf(const char *path)
     join_path(metafile, sizeof(metafile), outdir, "filelist.json");
 
     if (write_json_file_states(metafile, metaNames, metaStates, hdr.numFiles) != 0) {
-        fprintf(stderr, "extract_acf: cannot create metadata file %s\n", metafile);
+        fprintf(stderr, "extract_acf: cannot create metadata file '%s'\n", metafile);
         cleanup_extract(fileData, metaNames, metaStates, hdr.numFiles);
         return EXIT_FAILURE;
     }
@@ -375,7 +375,7 @@ static void process_directory(const char *directory)
     struct _finddata_t file;
     intptr_t hFile = _findfirst(searchPath, &file);
     if (hFile == -1L) {
-        printf("No acf archives found in %s\n", directory);
+        printf("No acf archives found in '%s'\n", directory);
         return;
     }
 
@@ -392,7 +392,7 @@ static void process_directory(const char *directory)
 {
     DIR *dir = opendir(directory);
     if (!dir) {
-        printf("Cannot open directory %s\n", directory);
+        printf("Cannot open directory '%s'\n", directory);
         return;
     }
 
@@ -712,7 +712,7 @@ int main(int argc, char **argv)
         }
 
         if (S_ISDIR(st.st_mode)) {
-            printf("Extracting all ACFs in directory: %s\n", path);
+            printf("Extracting all ACFs in directory: '%s'\n", path);
             process_directory(path);
         } else {
             return extract_acf(path);
@@ -725,11 +725,11 @@ int main(int argc, char **argv)
             return EXIT_FAILURE;
         }
 
-        printf("Building ACF from directory: %s\n", path);
+        printf("Building ACF from directory: '%s'\n", path);
         return build_acf(path);
 
     } else {
-        fprintf(stderr, "Unknown option: %s\n", mode);
+        fprintf(stderr, "Unknown option: '%s'\n", mode);
         fprintf(stderr, "Try '%s --help' for more information.\n", argv[0]);
         return EXIT_FAILURE;
     }

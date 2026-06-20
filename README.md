@@ -38,13 +38,13 @@ To get the ACF archives, Windows users can run [TinkeDSi](https://github.com/R-Y
 > [!IMPORTANT]
 > acftool is a command-line program and must be run in a terminal.
 
-#### ACF Extraction
+#### ACF extraction
 * To extract files from an ACF archive, run `acftool -x <in.acf>` or `acftool --extract <in.acf>`
 * To extract files from every ACF archives in a directory, run `acftool -x <indir>` or `acftool --extract <indir>`
 
 The output files will be located in a directory with the same name as the input ACF archive.
 
-#### ACF Building
+#### ACF building
 To build an ACF archive, run `acftool -b <indir>` or `acftool --build <indir>`. Please note that the target directory must contain a `filelist.json` file listing the files and their state (null: set file entry as unused; false: do not compress; true: compress), for example:
 ```json
 {
@@ -60,9 +60,14 @@ To build an ACF archive, run `acftool -b <indir>` or `acftool --build <indir>`. 
 Dependencies: `clang` or `gcc`, and `make`
 1. If you don't already have them, install the dependencies
 2. Clone this repository by running `git clone https://github.com/SombrAbsol/acftool`, or [download the ZIP archive](https://github.com/SombrAbsol/acftool/archive/refs/heads/main.zip) and extract it
-3. Go to the repository directory and build the executable by running `make`, or `make release` if you want to strip the generated build
+3. Go to the repository directory and build the program by running `make`.
 
-Operating systems that use the Unix file system (such as Linux and macOS) can then run `sudo make install` to install a stripped acftool system-wide. `sudo make uninstall` removes it.
+> [!TIP]
+> Running `make` or `make release` will generate a release build. Builds available to download are built using this recipe. If you want to generate a native or a debug build, run `make native` or `make debug`. Native builds are optimized for your specific CPU for better performance but may not be compatible with other systems, while debug builds include debugging symbols that help diagnose issues but run slower.
+>
+> Operating systems that use the Unix file system (such as Linux and macOS) can run `sudo make install` to install acftool system-wide, preferably after building a release or native build. Use `sudo make uninstall` to remove it.
+>
+> If you need to rebuild the program, run `make clean` or delete the `build` directory.
 
 ## TODO
 * Add ACZ support + documentation
