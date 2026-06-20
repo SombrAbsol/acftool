@@ -60,7 +60,7 @@ To build an ACF archive, run `acftool -b <indir>` or `acftool --build <indir>`. 
 Dependencies: `clang` or `gcc`, and `make`
 1. If you don't already have them, install the dependencies
 2. Clone this repository by running `git clone https://github.com/SombrAbsol/acftool`, or [download the ZIP archive](https://github.com/SombrAbsol/acftool/archive/refs/heads/main.zip) and extract it
-3. Go to the repository directory and build the program by running `make`.
+3. Go to the repository directory and build the program by running `make`
 
 > [!TIP]
 > Running `make` or `make release` will generate a release build. Builds available to download are built using this recipe. If you want to generate a native or a debug build, run `make native` or `make debug`. Native builds are optimized for your specific CPU for better performance but may not be compatible with other systems, while debug builds include debugging symbols that help diagnose issues but run slower.
