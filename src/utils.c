@@ -29,14 +29,16 @@ FILE *xfopen(const char *path, const char *mode)
 #ifdef _WIN32
     FILE *f = NULL;
     if (fopen_s(&f, path, mode) != 0) {
-        fprintf(stderr, "xfopen: failed to open '%s' with mode '%s'\n", path, mode);
+        fprintf(
+            stderr, "xfopen: failed to open '%s' with mode '%s'\n", path, mode);
         return NULL;
     }
     return f;
 #else
     FILE *f = fopen(path, mode);
     if (!f) {
-        fprintf(stderr, "xfopen: failed to open '%s' with mode '%s'\n", path, mode);
+        fprintf(
+            stderr, "xfopen: failed to open '%s' with mode '%s'\n", path, mode);
     }
     return f;
 #endif
@@ -110,7 +112,8 @@ unsigned char *read_file(const char *path, size_t *out_size)
         goto error;
     }
 
-    if ((unsigned long long)sz > SIZE_MAX) { // guard against truncation on 32-bit platforms
+    if ((unsigned long long)sz
+        > SIZE_MAX) { // guard against truncation on 32-bit platforms
         fprintf(stderr, "read_file: file too large for memory allocation\n");
         goto error;
     }
@@ -121,7 +124,8 @@ unsigned char *read_file(const char *path, size_t *out_size)
 
     buf = malloc(size);
     if (!buf) {
-        fprintf(stderr, "read_file: memory allocation failed (%zu bytes)\n", size);
+        fprintf(
+            stderr, "read_file: memory allocation failed (%zu bytes)\n", size);
         goto error;
     }
 
@@ -159,7 +163,9 @@ int write_file(const char *path, const uint8_t *data, size_t size)
         return EXIT_FAILURE;
     }
 
-    if (size && data && fwrite(data, 1, size, f) != size) { // skip fwrite if there is nothing to write
+    if (size && data
+        && fwrite(data, 1, size, f)
+            != size) { // skip fwrite if there is nothing to write
         fprintf(stderr, "write_file: failed to write '%s'\n", path);
         fclose(f);
         return EXIT_FAILURE;
@@ -197,7 +203,8 @@ int mkdir_dir(const char *path)
  */
 int is_invertible(const char *ext)
 {
-    static const char *const invertible[] = { "RGCN", "RLCN", "RECN", "RNAN", "RCSN", "RTFN" };
+    static const char *const invertible[]
+        = { "RGCN", "RLCN", "RECN", "RNAN", "RCSN", "RTFN" };
 
     for (size_t i = 0; i < sizeof(invertible) / sizeof(invertible[0]); ++i) {
         if (strcasecmp(ext, invertible[i]) == 0) {
@@ -234,7 +241,13 @@ void reverse_str_inplace(char *s)
 /*
  * Attempt to derive a file extension from the leading bytes of data.
  */
-const char *try_get_extension(const uint8_t *data, size_t size, int maxlength, int minlength, const char *defaultExt, char *outExt, size_t outExtSz)
+const char *try_get_extension(const uint8_t *data,
+    size_t size,
+    int maxlength,
+    int minlength,
+    const char *defaultExt,
+    char *outExt,
+    size_t outExtSz)
 {
     if (!defaultExt || !outExt || outExtSz == 0) {
         return defaultExt;
@@ -353,7 +366,8 @@ static void skip_ws(const char **p)
  * Parse a flat JSON object, mapping the literals true, false, and null to
  * the integers 1, 0, and -1 respectively.
  */
-int read_json_file_states(const char *path, char ***outNames, int **outStates, uint32_t *outCount)
+int read_json_file_states(
+    const char *path, char ***outNames, int **outStates, uint32_t *outCount)
 {
     if (!path || !outNames || !outStates || !outCount) {
         return EXIT_FAILURE;
@@ -394,8 +408,8 @@ int read_json_file_states(const char *path, char ***outNames, int **outStates, u
 
     skip_ws(&p);
     if (*p != '{') {
-        fprintf(stderr,
-            "read_json_file_states: expected '{' at start of object\n");
+        fprintf(
+            stderr, "read_json_file_states: expected '{' at start of object\n");
         goto error;
     }
     ++p;
@@ -409,14 +423,16 @@ int read_json_file_states(const char *path, char ***outNames, int **outStates, u
         }
 
         if (*p != '"') {
-            fprintf(stderr,
-                "read_json_file_states: expected '\"' before key\n");
+            fprintf(
+                stderr, "read_json_file_states: expected '\"' before key\n");
             goto error;
         }
         ++p;
 
         const char *start = p;
-        while (*p && !(*p == '"' && p[-1] != '\\')) { // scan to the closing quote, treating \" as escaped
+        while (
+            *p && !(*p == '"' && p[-1] != '\\')) { // scan to the closing quote,
+                                                   // treating \" as escaped
             ++p;
         }
         if (!*p) {
@@ -452,8 +468,9 @@ int read_json_file_states(const char *path, char ***outNames, int **outStates, u
             state = 1;
             p += 4;
         } else {
-            fprintf(stderr, "read_json_file_states: expected true, false, or "
-                            "null as value\n");
+            fprintf(stderr,
+                "read_json_file_states: expected true, false, or "
+                "null as value\n");
             free(name);
             goto error;
         }
@@ -493,8 +510,8 @@ int read_json_file_states(const char *path, char ***outNames, int **outStates, u
             ++p;
             break;
         }
-        fprintf(stderr,
-            "read_json_file_states: expected ',' or '}' after value\n");
+        fprintf(
+            stderr, "read_json_file_states: expected ',' or '}' after value\n");
         goto error;
     }
 
@@ -524,7 +541,8 @@ error:
  * Write a flat JSON object, mapping the literals true, false, and null to the
  * integers 1, 0, and -1 respectively.
  */
-int write_json_file_states(const char *path, char *const *names, const int *states, uint32_t count)
+int write_json_file_states(
+    const char *path, char *const *names, const int *states, uint32_t count)
 {
     if (!path || (!names && count) || (!states && count)) {
         return EXIT_FAILURE;
@@ -563,7 +581,10 @@ int write_json_file_states(const char *path, char *const *names, const int *stat
             return EXIT_FAILURE;
         }
 
-        fprintf(f, "  \"%s\": %s%s\n", esc, value,
+        fprintf(f,
+            "  \"%s\": %s%s\n",
+            esc,
+            value,
             (i + 1 < count) ? "," : ""); // omit trailing comma on last entry
         free(esc);
     }

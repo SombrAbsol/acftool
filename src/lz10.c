@@ -29,7 +29,8 @@ uint8_t *lz10_decompress(const uint8_t *src, size_t srcSize, size_t *outSize)
         return NULL;
     }
 
-    uint32_t decSize = (uint32_t)src[1] | ((uint32_t)src[2] << 8) | ((uint32_t)src[3] << 16);
+    uint32_t decSize
+        = (uint32_t)src[1] | ((uint32_t)src[2] << 8) | ((uint32_t)src[3] << 16);
     if (decSize == 0) {
         fprintf(stderr, "lz10_decompress: zero decompressed size\n");
         return NULL;
@@ -37,7 +38,9 @@ uint8_t *lz10_decompress(const uint8_t *src, size_t srcSize, size_t *outSize)
 
     uint8_t *dst = malloc(decSize);
     if (!dst) {
-        fprintf(stderr, "lz10_decompress: memory allocation failed (%u bytes)\n", decSize);
+        fprintf(stderr,
+            "lz10_decompress: memory allocation failed (%u bytes)\n",
+            decSize);
         return NULL;
     }
 
@@ -55,7 +58,8 @@ uint8_t *lz10_decompress(const uint8_t *src, size_t srcSize, size_t *outSize)
             if ((flags & 0x80) == 0) {
                 // literal byte
                 if (sp >= send) {
-                    fprintf(stderr, "lz10_decompress: unexpected end of input (literal)\n");
+                    fprintf(stderr,
+                        "lz10_decompress: unexpected end of input (literal)\n");
                     free(dst);
                     return NULL;
                 }
@@ -63,7 +67,8 @@ uint8_t *lz10_decompress(const uint8_t *src, size_t srcSize, size_t *outSize)
             } else {
                 // compressed block (back-reference)
                 if (sp + 1 >= send) {
-                    fprintf(stderr, "lz10_decompress: unexpected end of input (backref)\n");
+                    fprintf(stderr,
+                        "lz10_decompress: unexpected end of input (backref)\n");
                     free(dst);
                     return NULL;
                 }
@@ -76,7 +81,9 @@ uint8_t *lz10_decompress(const uint8_t *src, size_t srcSize, size_t *outSize)
 
                 // validate back-reference
                 if ((size_t)(dp - dst) < disp) {
-                    fprintf(stderr, "lz10_decompress: invalid back-reference (disp=%zu)\n", disp);
+                    fprintf(stderr,
+                        "lz10_decompress: invalid back-reference (disp=%zu)\n",
+                        disp);
                     free(dst);
                     return NULL;
                 }
@@ -98,7 +105,8 @@ uint8_t *lz10_decompress(const uint8_t *src, size_t srcSize, size_t *outSize)
 
     // ensure exact output size was produced
     if (dp != dend) {
-        fprintf(stderr, "lz10_decompress: size mismatch (expected %u)\n", decSize);
+        fprintf(
+            stderr, "lz10_decompress: size mismatch (expected %u)\n", decSize);
         free(dst);
         return NULL;
     }
@@ -120,7 +128,8 @@ uint8_t *lz10_compress(const uint8_t *src, size_t srcSize, size_t *outSize)
     }
 
     if (srcSize > 0xFFFFFF) {
-        fprintf(stderr, "lz10_compress: input too large (%zu bytes)\n", srcSize);
+        fprintf(
+            stderr, "lz10_compress: input too large (%zu bytes)\n", srcSize);
         return NULL;
     }
 
