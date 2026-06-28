@@ -37,12 +37,9 @@ typedef struct {
 } ACFHeader;
 
 typedef struct {
-    uint32_t relativeOffset; // offset relative to data_start; if 0xFFFFFFFF,
-    // skip this entry
-    uint32_t outputSize; // size of the output (decompressed) data; pad the
-    // output with zeros to reach this size
-    uint32_t inputSize; // size of the compressed input data if LZ10-compressed;
-    // 0 if not compressed
+    uint32_t relativeOffset; // offset relative to data_start
+    uint32_t outputSize; // size of the output (decompressed) data
+    uint32_t inputSize; // size of the compressed input data if LZ10-compressed
 } FATEntry;
 
 /*
