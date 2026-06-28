@@ -18,6 +18,9 @@
 #include <sys/stat.h>
 #ifdef _WIN32
 #include <direct.h>
+#endif
+
+#ifdef _WIN32
 #define strcasecmp _stricmp
 #endif
 
