@@ -9,6 +9,7 @@
 #include "utils.h"
 
 #include <ctype.h>
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -71,15 +72,6 @@ char *xstrdup(const char *s)
     }
 
     return p;
-}
-
-/*
- * Check whether a file exists at the given path.
- */
-int file_exists(const char *path)
-{
-    struct stat st;
-    return stat(path, &st) == 0;
 }
 
 /*
@@ -152,15 +144,15 @@ error:
 /*
  * Write bytes to a file, creating or truncating it as needed.
  */
-int write_file(const char *path, const uint8_t *data, size_t size)
+bool write_file(const char *path, const uint8_t *data, size_t size)
 {
     if (!path) {
-        return EXIT_FAILURE;
+        return false;
     }
 
     FILE *f = xfopen(path, "wb");
     if (!f) {
-        return EXIT_FAILURE;
+        return false;
     }
 
     if (size && data
@@ -168,51 +160,51 @@ int write_file(const char *path, const uint8_t *data, size_t size)
             != size) { // skip fwrite if there is nothing to write
         fprintf(stderr, "write_file: failed to write '%s'\n", path);
         fclose(f);
-        return EXIT_FAILURE;
+        return false;
     }
 
     fclose(f);
-    return EXIT_SUCCESS;
+    return true;
 }
 
 /*
  * Create a directory if it does not already exist.
  */
-int mkdir_dir(const char *path)
+bool mkdir_dir(const char *path)
 {
 #ifdef _WIN32
     if (_mkdir(path) == 0) {
-        return 0;
+        return true;
     }
 #else
     if (mkdir(path, 0755) == 0) {
-        return 0;
+        return true;
     }
 #endif
     struct stat st;
     if (stat(path, &st) == 0 && S_ISDIR(st.st_mode)) {
-        return 0;
+        return true;
     }
     fprintf(stderr, "mkdir_dir: failed to create '%s'\n", path);
-    return -1;
+    return false;
 }
 
 /*
  * Check whether a file extension matches one of the known Nintendo container
  * magic strings whose bytes appear reversed in the file header, or not.
  */
-int is_invertible(const char *ext)
+bool is_invertible(const char *ext)
 {
     static const char *const invertible[]
         = { "RGCN", "RLCN", "RECN", "RNAN", "RCSN", "RTFN" };
 
     for (size_t i = 0; i < sizeof(invertible) / sizeof(invertible[0]); ++i) {
         if (strcasecmp(ext, invertible[i]) == 0) {
-            return 1;
+            return true;
         }
     }
 
-    return 0;
+    return false;
 }
 
 /*
@@ -366,11 +358,11 @@ static void skip_ws(const char **p)
  * Parse a flat JSON object, mapping the literals true, false, and null to
  * the integers 1, 0, and -1 respectively.
  */
-int read_json_file_states(
+bool read_json_file_states(
     const char *path, char ***outNames, int **outStates, uint32_t *outCount)
 {
     if (!path || !outNames || !outStates || !outCount) {
-        return EXIT_FAILURE;
+        return false;
     }
 
     *outNames = NULL;
@@ -380,13 +372,13 @@ int read_json_file_states(
     size_t size = 0;
     uint8_t *buf = read_file(path, &size);
     if (!buf) {
-        return EXIT_FAILURE;
+        return false;
     }
 
     char *json = malloc(size + 1); // +1 for the null terminator added below
     if (!json) {
         free(buf);
-        return EXIT_FAILURE;
+        return false;
     }
 
     memcpy(json, buf, size);
@@ -403,7 +395,7 @@ int read_json_file_states(
         free(names);
         free(states);
         free(json);
-        return EXIT_FAILURE;
+        return false;
     }
 
     skip_ws(&p);
@@ -525,7 +517,7 @@ int read_json_file_states(
     *outNames = names;
     *outStates = states;
     *outCount = count;
-    return EXIT_SUCCESS;
+    return true;
 
 error:
     for (uint32_t i = 0; i < count; ++i) {
@@ -534,23 +526,23 @@ error:
     free(names);
     free(states);
     free(json);
-    return EXIT_FAILURE;
+    return false;
 }
 
 /*
  * Write a flat JSON object, mapping the literals true, false, and null to the
  * integers 1, 0, and -1 respectively.
  */
-int write_json_file_states(
+bool write_json_file_states(
     const char *path, char *const *names, const int *states, uint32_t count)
 {
     if (!path || (!names && count) || (!states && count)) {
-        return EXIT_FAILURE;
+        return false;
     }
 
     FILE *f = xfopen(path, "wb");
     if (!f) {
-        return EXIT_FAILURE;
+        return false;
     }
 
     fputs("{\n", f);
@@ -558,13 +550,13 @@ int write_json_file_states(
     for (uint32_t i = 0; i < count; ++i) {
         if (!names[i]) {
             fclose(f);
-            return EXIT_FAILURE;
+            return false;
         }
 
         char *esc = escape_json_string(names[i], strlen(names[i]));
         if (!esc) {
             fclose(f);
-            return EXIT_FAILURE;
+            return false;
         }
 
         // map integer state back to its JSON literal
@@ -578,7 +570,7 @@ int write_json_file_states(
         } else {
             free(esc);
             fclose(f);
-            return EXIT_FAILURE;
+            return false;
         }
 
         fprintf(f,
@@ -591,7 +583,7 @@ int write_json_file_states(
 
     fputs("}\n", f);
     fclose(f);
-    return EXIT_SUCCESS;
+    return true;
 }
 
 /*

@@ -9,6 +9,7 @@
 #ifndef UTILS_H
 #define UTILS_H
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -43,18 +44,18 @@ uint8_t *read_file(const char *path, size_t *outSize);
 /*
  * Write bytes to a file, creating or truncating it as needed.
  */
-int write_file(const char *path, const uint8_t *data, size_t size);
+bool write_file(const char *path, const uint8_t *data, size_t size);
 
 /*
  * Create a directory if it does not already exist.
  */
-int mkdir_dir(const char *path);
+bool mkdir_dir(const char *path);
 
 /*
  * Check whether a file extension matches one of the known Nintendo container
  * magic strings whose bytes appear reversed in the file header, or not.
  */
-int is_invertible(const char *ext);
+bool is_invertible(const char *ext);
 
 /*
  * Reverse a null-terminated string in place.
@@ -82,9 +83,9 @@ char *unescape_json_string(const char *start, size_t len);
  * Parse/write a flat JSON object, mapping the literals true, false, and null to
  * the integers 1, 0, and -1 respectively.
  */
-int read_json_file_states(
+bool read_json_file_states(
     const char *path, char ***outNames, int **outStates, uint32_t *outCount);
-int write_json_file_states(
+bool write_json_file_states(
     const char *path, char *const *names, const int *states, uint32_t count);
 
 /*
