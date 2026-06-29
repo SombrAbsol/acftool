@@ -12,7 +12,7 @@ ACF archive utility for *Pokémon Ranger: Guardian Signs*. Based on [a fork of a
 
 ACF archives are used in *Pokémon Ranger: Guardian Signs* data. This tool allows you to extract the files contained in ACF archives, automatically handling decompression when needed, and to rebuild these archives. You can [download the latest build](#download) or [build the program from source](#building).
 
-For more information on the ACF format, see [the documentation](/docs/acf.md).
+For more information about the ACF format, see [the documentation](/docs/acf.md).
 
 ## Download
 |        | Linux | macOS | Windows |
@@ -57,15 +57,19 @@ To build an ACF archive, run `acftool -b <indir>` or `acftool --build <indir>`. 
 ```
 
 ## Building
-Dependencies: `clang` or `gcc`, and `make`
+### Dependencies
+* `clang` or `gcc`
+* `make`
+
+### Steps
 1. If you don't already have them, install the dependencies
 2. Clone this repository by running `git clone https://github.com/SombrAbsol/acftool`, or [download the ZIP archive](https://github.com/SombrAbsol/acftool/archive/refs/heads/main.zip) and extract it
 3. Go to the repository directory and build the program by running `make`
 
 > [!TIP]
-> Running `make` or `make release` will generate a release build. Builds available to download are built using this recipe. If you want to generate a native or a debug build, run `make native` or `make debug`. Native builds are optimized for your specific CPU for better performance but may not be compatible with other systems, while debug builds include debugging symbols that help diagnose issues but run slower.
+> Running `make` or `make release` will generate a release build. The downloadable releases are static builds generated using this recipe. If you want to generate a native or a debug build, run `make native` or `make debug`. Native builds are optimized for your specific CPU for better performance but may not be compatible with other systems, while debug builds include debugging symbols that help diagnose issues but run slower.
 >
-> Operating systems that use the Unix file system (such as Linux and macOS) can run `sudo make install` to install acftool system-wide, preferably after building a release or native build. Use `sudo make uninstall` to remove it.
+> Unix-like operating systems (such as Linux and macOS) can run `sudo make install` to install acftool system-wide, preferably after building a release or native build. Use `sudo make uninstall` to remove it.
 >
 > If you need to rebuild the program, run `make clean` or delete the `build` directory.
 
