@@ -52,6 +52,11 @@ To get the ACF archives, Windows users can run [TinkeDSi](https://github.com/R-Y
 }
 ```
 
+The map files of the Japanese release (`data/map/*.acf`) are ACF archives with another signature, `MBG0`, and are handled the same way. The other releases store the same map files compressed with Huffman coding, in `data/mapz/*.acz`. acftool is therefore able to (de)compress these archives:
+* `acftool <in.acz>` extracts the files of a compressed archive, like those of an `.acf` one. Its `filelist.json` file then holds `"huffman": true`
+* `acftool -z <indir>` or `acftool --huffman <indir>` builds a compressed `.acz` archive from any directory
+* `acftool -z <in.acf>` compresses an existing archive into an `.acz` file
+
 The files of an archive are extracted, along with the `filelist.json` file listing them, to a directory with the same name as the archive, without its extension. A directory is built into an archive with the same name, followed by the `.acf` extension. However, you can optionally specify the output directory or archive of a single input with `-o` or `--output`, or a directory to write the outputs in with `--output-dir`, for instance:
 * `acftool in.acf -o outdir` will extract the files to `outdir`
 * `acftool indir -o out.acf` will build the archive `out.acf`

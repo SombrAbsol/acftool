@@ -101,10 +101,10 @@ static bool may_write(const char *path)
 
 /*
  * Derive the output of an input from its path, trailing separators dropped:
- * its extension stripped if 'ext' is empty, or 'ext' appended otherwise.
+ * its extension stripped if 'strip', then 'ext' appended.
  */
 static bool default_output(
-    char *dst, size_t dstSize, const char *path, const char *ext)
+    char *dst, size_t dstSize, const char *path, const char *ext, bool strip)
 {
     if ((size_t)snprintf(dst, dstSize, "%s", path) >= dstSize) {
         fprintf(stderr, "%s: path too long: '%s'\n", programName, path);
@@ -116,7 +116,7 @@ static bool default_output(
 
     // find the last dot of the filename to locate the extension
     char *dot = strrchr(dst, '.');
-    if (!*ext && dot && dot > path_basename(dst)) {
+    if (strip && dot && dot > path_basename(dst)) {
         *dot = '\0';
     }
     size_t len = strlen(dst);
@@ -136,12 +136,14 @@ static bool output_in(char *dst,
     size_t dstSize,
     const char *root,
     const char *path,
-    const char *ext)
+    const char *ext,
+    bool strip)
 {
     char name[PATH_SIZE];
-    return root ? default_output(name, sizeof(name), path_basename(path), ext)
+    return root
+        ? default_output(name, sizeof(name), path_basename(path), ext, strip)
             && join_path(dst, dstSize, root, name)
-                : default_output(dst, dstSize, path, ext);
+        : default_output(dst, dstSize, path, ext, strip);
 }
 
 /*
@@ -151,10 +153,24 @@ static bool output_in(char *dst,
 static void extract_found(const char *path)
 {
     char outDir[PATH_SIZE];
-    if (!output_in(outDir, sizeof(outDir), outRoot, path, "")) {
+    if (!output_in(outDir, sizeof(outDir), outRoot, path, "", true)) {
         failed = true;
     } else if (may_write(outDir)) {
         failed |= !acf_extract(path, outDir);
+    }
+}
+
+/*
+ * Compress an archive found in a directory into an .acz file, in the output
+ * directory if any, or next to it. An error does not stop the others.
+ */
+static void compress_found(const char *path)
+{
+    char outName[PATH_SIZE];
+    if (!output_in(outName, sizeof(outName), outRoot, path, ".acz", true)) {
+        failed = true;
+    } else if (may_write(outName)) {
+        failed |= !acf_compress(path, outName);
     }
 }
 
@@ -168,10 +184,13 @@ static void print_help(void)
         "Extract and build the ACF archives of Pokémon Ranger: Guardian "
         "Signs.\n"
         "\n"
-        "INPUT is an ACF archive, extracted to a directory along with a\n"
-        "filelist.json file listing its files, or a directory holding such a\n"
-        "file, built into an archive. Any other directory has all its ACF\n"
-        "archives extracted. The outputs are named after their input, its\n"
+        "INPUT is an ACF archive, Huffman-compressed (.acz) or not, extracted "
+        "to a\n"
+        "directory along with a filelist.json file listing its files, or a\n"
+        "directory holding such a file, built into an archive. Any other "
+        "directory has\n"
+        "all its ACF archives extracted. The outputs are named after their "
+        "input, its\n"
         "extension replaced, and written next to it by default.\n"
         "\n"
         "Options:\n"
@@ -186,6 +205,11 @@ static void print_help(void)
         "holds a\n"
         "                         filelist.json file\n"
         "  -b, --build            build INPUT into an archive\n"
+        "  -z, --huffman          compress the archives written with Huffman "
+        "coding\n"
+        "                         (.acz), and the archive files given instead "
+        "of\n"
+        "                         extracting them\n"
         "  -y, --yes              replace existing outputs without asking\n"
         "  -q, --quiet, --silent  show errors and warnings only\n");
 }
@@ -223,7 +247,7 @@ int main(int argc, char **argv)
      * Options as getopt_long: short ones grouped or with an attached argument,
      * long ones abbreviated or with "=arg", before "--". Help and version stop.
      */
-    bool extract = false, build = false;
+    bool extract = false, build = false, huffman = false;
     static const struct {
         char name; // short name, or 0 for none
         const char *longName;
@@ -233,6 +257,7 @@ int main(int argc, char **argv)
         { 0, "output-dir", true },
         { 'x', "extract", false },
         { 'b', "build", false },
+        { 'z', "huffman", false },
         { 'y', "yes", false },
         { 'q', "quiet", false },
         { 0, "silent", false },
@@ -305,6 +330,8 @@ int main(int argc, char **argv)
                 extract = true;
             } else if (!strcmp(name, "build")) {
                 build = true;
+            } else if (!strcmp(name, "huffman")) {
+                huffman = true;
             } else if (!strcmp(name, "yes")) {
                 yes = true;
             } else if (!strcmp(name, "quiet") || !strcmp(name, "silent")) {
@@ -325,6 +352,9 @@ int main(int argc, char **argv)
     }
     if (extract && build) {
         return usage_error("options '--extract' and '--build' conflict");
+    }
+    if (huffman && extract) {
+        return usage_error("options '--huffman' and '--extract' conflict");
     }
     if (out && outDir) {
         return usage_error("options '--output' and '--output-dir' conflict");
@@ -375,6 +405,31 @@ int main(int argc, char **argv)
             continue;
         }
 
+        // with -z, an archive file is compressed instead of extracted
+        if (huffman && !isDir) {
+            char path[PATH_SIZE];
+            if (acf_is_huffman(in)) {
+                fprintf(stderr,
+                    "%s: '%s' is already Huffman-compressed\n",
+                    programName,
+                    in);
+                failed = true;
+                continue;
+            }
+            if (out) {
+                snprintf(path, sizeof(path), "%s", out);
+            } else if (!output_in(
+                           path, sizeof(path), outDir, in, ".acz", true)) {
+                failed = true;
+                continue;
+            }
+            if (may_write(path)) {
+                failed |= !acf_compress(in, path);
+                ++done;
+            }
+            continue;
+        }
+
         // a directory holding a filelist.json file is built unless told
         // otherwise
         bool doBuild = build;
@@ -387,19 +442,26 @@ int main(int argc, char **argv)
         }
 
         if (doBuild || !isDir) {
+            // an archive extracted from an .acz file is built back into one
+            int listed = doBuild ? acf_list_huffman(in) : 0;
+            if (listed < 0) {
+                failed = true;
+                continue;
+            }
             if (out) {
                 snprintf(path, sizeof(path), "%s", out);
             } else if (!output_in(path,
                            sizeof(path),
                            outDir,
                            in,
-                           doBuild ? ".acf" : "")) {
+                           doBuild ? (huffman || listed ? ".acz" : ".acf") : "",
+                           !doBuild)) {
                 failed = true;
                 continue;
             }
             if (may_write(path)) {
-                failed
-                    |= doBuild ? !acf_build(in, path) : !acf_extract(in, path);
+                failed |= doBuild ? !acf_build(in, path, huffman)
+                                  : !acf_extract(in, path);
                 ++done;
             }
             continue;
@@ -414,9 +476,16 @@ int main(int argc, char **argv)
         }
         outRoot = outDir;
         if (verbose != 0) {
-            printf("Extracting all ACF archives in directory: '%s'\n", in);
+            printf("%s all ACF archives in directory: '%s'\n",
+                huffman ? "Compressing" : "Extracting",
+                in);
         }
-        long found = for_each_file(in, ".acf", extract_found);
+        long found = for_each_file(
+            in, ".acf", huffman ? compress_found : extract_found);
+        long foundAcz = huffman || found < 0
+            ? 0
+            : for_each_file(in, ".acz", extract_found);
+        found = foundAcz < 0 ? -1 : found + foundAcz;
         if (found < 0) {
             fprintf(
                 stderr, "%s: cannot open directory '%s'\n", programName, in);

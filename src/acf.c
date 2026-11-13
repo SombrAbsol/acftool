@@ -10,6 +10,7 @@
 
 #include "filelist.h"
 #include "fs.h"
+#include "huffman.h"
 #include "lz10.h"
 
 #include <ctype.h>
@@ -22,6 +23,7 @@
 #define FAT_ENTRY_SIZE 12 // relative offset, output size, input size
 #define UNUSED_ENTRY   0xFFFFFFFFu // relative offset of an absent entry
 #define NAME_SIZE      16 // "NNNN.EXT" entry name, null terminator included
+#define MBG0_SIGNATURE "MBG0" // ACF variant of the Japanese Guardian Signs maps
 
 /*
  * Read a 32-bit little-endian integer.
@@ -41,6 +43,15 @@ static void put_u32(uint8_t *p, uint32_t v)
     p[1] = (uint8_t)(v >> 8);
     p[2] = (uint8_t)(v >> 16);
     p[3] = (uint8_t)(v >> 24);
+}
+
+/*
+ * Check whether data starts like an ACF archive, of either signature.
+ */
+static bool is_archive(const uint8_t *data, size_t size)
+{
+    return size >= HEADER_SIZE
+        && (!memcmp(data, "acf", 4) || !memcmp(data, MBG0_SIGNATURE, 4));
 }
 
 /*
@@ -146,7 +157,27 @@ bool acf_extract(const char *path, const char *outdir)
         return false;
     }
 
-    if (fileSize < HEADER_SIZE || memcmp(fileData, "acf", 3) != 0) {
+    // an .acz archive is Huffman-compressed as a whole, with 8-bit symbols as
+    // the build writes them back
+    bool huffman = fileData[0] == 0x28;
+    if (huffman) {
+        size_t decSize = 0;
+        uint8_t *dec = huffman_decompress(fileData, fileSize, &decSize);
+        free(fileData);
+        fileData = dec;
+        fileSize = decSize;
+        if (!fileData) {
+            fprintf(stderr,
+                "%s: '%s' is not a Huffman-compressed ACF archive\n",
+                programName,
+                path);
+            return false;
+        }
+    }
+
+    // the MBG0 variant differs only by its signature, kept in filelist.json
+    bool mbg0 = fileSize >= HEADER_SIZE && !memcmp(fileData, MBG0_SIGNATURE, 4);
+    if (!is_archive(fileData, fileSize)) {
         fprintf(stderr, "%s: '%s' is not an ACF archive\n", programName, path);
         free(fileData);
         return false;
@@ -241,7 +272,8 @@ bool acf_extract(const char *path, const char *outdir)
     }
 
     bool ok = join_path(outname, sizeof(outname), outdir, "filelist.json")
-        && filelist_write(outname, entries, numFiles);
+        && filelist_write(
+            outname, mbg0 ? MBG0_SIGNATURE : NULL, huffman, entries, numFiles);
 
     free(entries);
     free(fileData);
@@ -249,23 +281,70 @@ bool acf_extract(const char *path, const char *outdir)
 }
 
 /*
- * Pack the contents of a directory into a new ACF archive, guided by the
- * filelist.json file found inside the directory.
+ * Archive being built in memory.
  */
-bool acf_build(const char *dir, const char *outname)
+typedef struct {
+    uint8_t *data;
+    size_t size, capacity;
+} Buffer;
+
+/*
+ * Append bytes to a buffer, doubled when full, or zeros if 'bytes' is NULL.
+ * Return false if memory runs out, after printing it.
+ */
+static bool append(Buffer *b, const uint8_t *bytes, size_t n)
+{
+    if (b->size + n > b->capacity) {
+        size_t capacity = b->capacity ? b->capacity : 0x10000;
+        while (capacity < b->size + n) {
+            capacity *= 2;
+        }
+        uint8_t *grown = realloc(b->data, capacity);
+        if (!grown) {
+            fprintf(stderr, "%s: memory allocation failed\n", programName);
+            return false;
+        }
+        b->data = grown;
+        b->capacity = capacity;
+    }
+    if (bytes) {
+        memcpy(b->data + b->size, bytes, n);
+    } else {
+        memset(b->data + b->size, 0, n);
+    }
+    b->size += n;
+    return true;
+}
+
+/*
+ * Pack the contents of a directory into a new ACF archive, guided by the
+ * filelist.json file found inside the directory, Huffman-compressed if asked
+ * or if the file lists it so.
+ */
+bool acf_build(const char *dir, const char *outname, bool huffman)
 {
     char path[PATH_SIZE];
     char *text = NULL;
+    const char *signature = NULL;
+    bool listed = false;
     FileState *entries = NULL;
     uint32_t count = 0;
-    uint8_t *fat = NULL;
-    FILE *out = NULL;
+    Buffer archive = { 0 };
     bool ok = false;
 
     if (!join_path(path, sizeof(path), dir, "filelist.json")
-        || !filelist_read(path, &text, &entries, &count)) {
+        || !filelist_read(path, &text, &signature, &listed, &entries, &count)) {
         fprintf(stderr, "%s: '%s' is missing or invalid\n", programName, path);
         return false;
+    }
+    huffman |= listed;
+    if (signature && strcmp(signature, MBG0_SIGNATURE)) {
+        fprintf(stderr,
+            "%s: '%s': unknown signature '%s'\n",
+            programName,
+            path,
+            signature);
+        goto done;
     }
 
     if (count == 0) {
@@ -292,113 +371,146 @@ bool acf_build(const char *dir, const char *outname)
         }
     }
 
+    // the header, then the FAT, filled in as the files are added after it
     size_t fatSize = (size_t)count * FAT_ENTRY_SIZE;
-    fat = calloc(count, FAT_ENTRY_SIZE);
-    if (!fat) {
-        fprintf(stderr, "%s: memory allocation failed\n", programName);
+    if (!append(&archive, NULL, HEADER_SIZE + fatSize)) {
         goto done;
     }
-
-    out = xfopen(outname, "wb");
-    if (!out) {
-        fprintf(stderr, "%s: cannot create '%s'\n", programName, outname);
-        goto done;
-    }
-
-    uint8_t header[HEADER_SIZE] = { 'a', 'c', 'f', '\0' };
-    put_u32(header + 0x04, HEADER_SIZE);
-    put_u32(header + 0x08, (uint32_t)(HEADER_SIZE + fatSize));
-    put_u32(header + 0x0C, count);
-    put_u32(header + 0x10, 1); // unknown1
-    put_u32(header + 0x14, 0x32); // unknown2
-
-    // placeholder FAT, patched below after data is written
-    if (fwrite(header, 1, sizeof(header), out) != sizeof(header)
-        || fwrite(fat, 1, fatSize, out) != fatSize) {
-        fprintf(stderr, "%s: failed to write '%s'\n", programName, outname);
-        goto done;
-    }
-
-    static const uint8_t zeroPad[4] = { 0 };
+    memcpy(archive.data, signature ? signature : "acf", 4);
+    put_u32(archive.data + 0x04, HEADER_SIZE);
+    put_u32(archive.data + 0x08, (uint32_t)(HEADER_SIZE + fatSize));
+    put_u32(archive.data + 0x0C, count);
+    put_u32(archive.data + 0x10, 1); // unknown1
+    put_u32(archive.data + 0x14, 0x32); // unknown2
 
     uint32_t offset = 0; // running byte offset into the data region
     for (uint32_t i = 0; i < count; ++i) {
-        uint8_t *e = fat + (size_t)i * FAT_ENTRY_SIZE;
-
+        uint8_t *e = archive.data + HEADER_SIZE + (size_t)i * FAT_ENTRY_SIZE;
         if (entries[i].state < 0) { // null state: absent entry
             put_u32(e, UNUSED_ENTRY);
-        } else {
-            uint8_t *buf = NULL;
-            size_t sz = 0;
-            if (join_path(path, sizeof(path), dir, entries[i].name)) {
-                buf = read_file(path, &sz);
-            }
-            if (!buf) {
+            print_progress(dir, "packed", i, count);
+            continue;
+        }
+
+        uint8_t *buf = NULL;
+        size_t sz = 0;
+        if (join_path(path, sizeof(path), dir, entries[i].name)) {
+            buf = read_file(path, &sz);
+        }
+        if (!buf) {
+            fprintf(stderr,
+                "%s: '%s' is listed in filelist.json but cannot be read\n",
+                programName,
+                path);
+            goto done;
+        }
+
+        uint8_t *comp = NULL;
+        size_t compSize = 0;
+        if (entries[i].state) {
+            comp = lz10_compress(buf, sz, &compSize);
+            if (!comp) {
                 fprintf(stderr,
-                    "%s: '%s' is listed in filelist.json but cannot be "
-                    "read\n",
+                    "%s: compression failed for '%s'\n",
                     programName,
                     path);
-                goto done;
-            }
-
-            uint8_t *comp = NULL;
-            size_t compSize = 0;
-            if (entries[i].state) {
-                comp = lz10_compress(buf, sz, &compSize);
-                if (!comp) {
-                    fprintf(stderr,
-                        "%s: compression failed for '%s'\n",
-                        programName,
-                        path);
-                    free(buf);
-                    goto done;
-                }
-            }
-
-            const uint8_t *data = comp ? comp : buf;
-            size_t len = comp ? compSize : sz;
-            size_t pad = pad4(len); // pad to 4-byte boundary
-            bool written = fwrite(data, 1, len, out) == len
-                && fwrite(zeroPad, 1, pad, out) == pad;
-
-            put_u32(e, offset);
-            put_u32(e + 4, (uint32_t)(sz + pad4(sz))); // padded output size
-            put_u32(e + 8, comp ? (uint32_t)(len + pad) : 0); // padded input
-            offset += (uint32_t)(len + pad);
-
-            free(comp);
-            free(buf);
-            if (!written) {
-                fprintf(
-                    stderr, "%s: failed to write '%s'\n", programName, outname);
+                free(buf);
                 goto done;
             }
         }
 
+        // each file is padded to 4 bytes
+        const uint8_t *data = comp ? comp : buf;
+        size_t len = comp ? compSize : sz;
+        size_t pad = pad4(len);
+        bool added = append(&archive, data, len) && append(&archive, NULL, pad);
+        free(comp);
+        free(buf);
+        if (!added) {
+            goto done;
+        }
+        e = archive.data + HEADER_SIZE + (size_t)i * FAT_ENTRY_SIZE; // moved
+        put_u32(e, offset);
+        put_u32(e + 4, (uint32_t)(sz + pad4(sz))); // padded output size
+        put_u32(e + 8, comp ? (uint32_t)(len + pad) : 0); // padded input
+        offset += (uint32_t)(len + pad);
         print_progress(dir, "packed", i, count);
     }
-
     if (verbose == 1) {
         printf("\n");
     }
 
-    // patch the FAT with the computed offsets and sizes
-    if (fseek(out, HEADER_SIZE, SEEK_SET) != 0
-        || fwrite(fat, 1, fatSize, out) != fatSize) {
-        fprintf(stderr, "%s: failed to write '%s'\n", programName, outname);
-        goto done;
+    // the whole archive is Huffman-compressed for an .acz file
+    if (huffman) {
+        size_t compSize = 0;
+        uint8_t *comp = huffman_compress(archive.data, archive.size, &compSize);
+        ok = comp && write_file(outname, comp, compSize);
+        free(comp);
+    } else {
+        ok = write_file(outname, archive.data, archive.size);
     }
-
-    ok = true;
 
 done:
-    if (out && fclose(out) != 0 && ok) {
-        fprintf(stderr, "%s: failed to write '%s'\n", programName, outname);
-        ok = false;
-    }
-    free(fat);
+    free(archive.data);
     free(entries);
     free(text);
+    return ok;
+}
+
+int acf_list_huffman(const char *dir)
+{
+    char path[PATH_SIZE];
+    char *text = NULL;
+    const char *signature = NULL;
+    bool huffman = false;
+    FileState *entries = NULL;
+    uint32_t count = 0;
+    if (!join_path(path, sizeof(path), dir, "filelist.json")
+        || !filelist_read(
+            path, &text, &signature, &huffman, &entries, &count)) {
+        fprintf(stderr, "%s: '%s' is missing or invalid\n", programName, path);
+        return -1;
+    }
+    free(entries);
+    free(text);
+    return huffman;
+}
+
+bool acf_is_huffman(const char *path)
+{
+    FILE *f = xfopen(path, "rb");
+    int c = f ? fgetc(f) : EOF;
+    if (f) {
+        fclose(f);
+    }
+    return c == 0x24 || c == 0x28; // 4-bit or 8-bit symbols
+}
+
+/*
+ * Print the sizes of a file converted, in normal mode.
+ */
+static void print_sizes(const char *path, size_t from, size_t to)
+{
+    if (verbose == 1) {
+        printf("  %s: %zu -> %zu bytes\n", path_basename(path), from, to);
+    }
+}
+
+bool acf_compress(const char *path, const char *outname)
+{
+    size_t size = 0, outSize = 0;
+    uint8_t *data = read_file(path, &size);
+    if (data && !is_archive(data, size)) {
+        fprintf(stderr, "%s: '%s' is not an ACF archive\n", programName, path);
+        free(data);
+        return false;
+    }
+    uint8_t *comp = data ? huffman_compress(data, size, &outSize) : NULL;
+    bool ok = comp && write_file(outname, comp, outSize);
+    if (ok) {
+        print_sizes(path, size, outSize);
+    }
+    free(comp);
+    free(data);
     return ok;
 }

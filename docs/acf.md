@@ -19,7 +19,7 @@ Used in *Pokémon Ranger: Guardian Signs* to store and optionally compress multi
 ### Header
 ```rust
 {
-  char[4] magic       // "acf\0"
+  char[4] magic       // "acf\0" or "MBG0" (see below)
   u32     header_size // 0x20
   u32     data_start  // absolute offset to the start of file data
   u32     num_files   // number of FAT entries, unused ones included
@@ -30,6 +30,8 @@ Used in *Pokémon Ranger: Guardian Signs* to store and optionally compress multi
 ```
 
 Immediately followed by `num_files` FAT entries, beginning at byte `header_size` (`0x20`).
+
+The map files of the Japanese release (`data/map/*.acf`) are ACF archives with the `MBG0` magic instead, every other field being the same. The other releases store the same files compressed with Huffman coding as `data/mapz/*.acz` (header byte `0x28`: 8-bit symbols).
 
 ### FAT entries
 ```rust
