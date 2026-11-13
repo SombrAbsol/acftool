@@ -61,6 +61,14 @@ static const char *outRoot; // directory of the extracted archives, or NULL
 static bool failed; // an input or an archive found failed
 
 /*
+ * Outputs of the run, each with its input, so that none is written twice.
+ */
+static struct {
+    char *out, *in;
+} *claims;
+static size_t claimCount;
+
+/*
  * Print a command-line error and point to the help.
  */
 PRINTF_LIKE static int usage_error(const char *fmt, ...)
@@ -91,12 +99,55 @@ static bool confirm_overwrite(const char *name)
 }
 
 /*
- * Check whether an output may be written: new, confirmed, or -y given.
+ * Copy a string, or return NULL if memory runs out.
  */
-static bool may_write(const char *path)
+static char *copy_string(const char *s)
 {
+    size_t size = strlen(s) + 1;
+    char *copy = malloc(size);
+    return copy ? memcpy(copy, s, size) : NULL;
+}
+
+/*
+ * Check whether an output may be written: not the output of an earlier input
+ * of the run, then new, confirmed, or -y given. A refused output fails the run.
+ */
+static bool may_write(const char *path, const char *in)
+{
+    for (size_t i = 0; i < claimCount; ++i) {
+        if (!strcmp(claims[i].out, path)) {
+            fprintf(stderr,
+                "%s: '%s' would overwrite the output of '%s'\n",
+                programName,
+                in,
+                claims[i].in);
+            failed = true;
+            return false;
+        }
+    }
+
     bool isDir;
-    return yes || !path_exists(path, &isDir) || confirm_overwrite(path);
+    if (!yes && path_exists(path, &isDir) && !confirm_overwrite(path)) {
+        return false;
+    }
+
+    // the output is recorded once it may be written
+    void *grown = realloc(claims, (claimCount + 1) * sizeof(*claims));
+    char *out = copy_string(path), *input = copy_string(in);
+    if (grown) {
+        claims = grown;
+    }
+    if (!grown || !out || !input) {
+        fprintf(stderr, "%s: memory allocation failed\n", programName);
+        free(out);
+        free(input);
+        failed = true;
+        return false;
+    }
+    claims[claimCount].out = out;
+    claims[claimCount].in = input;
+    ++claimCount;
+    return true;
 }
 
 /*
@@ -155,7 +206,7 @@ static void extract_found(const char *path)
     char outDir[PATH_SIZE];
     if (!output_in(outDir, sizeof(outDir), outRoot, path, "", true)) {
         failed = true;
-    } else if (may_write(outDir)) {
+    } else if (may_write(outDir, path)) {
         failed |= !acf_extract(path, outDir);
     }
 }
@@ -169,7 +220,7 @@ static void compress_found(const char *path)
     char outName[PATH_SIZE];
     if (!output_in(outName, sizeof(outName), outRoot, path, ".acz", true)) {
         failed = true;
-    } else if (may_write(outName)) {
+    } else if (may_write(outName, path)) {
         failed |= !acf_compress(path, outName);
     }
 }
@@ -423,7 +474,7 @@ int main(int argc, char **argv)
                 failed = true;
                 continue;
             }
-            if (may_write(path)) {
+            if (may_write(path, in)) {
                 failed |= !acf_compress(in, path);
                 ++done;
             }
@@ -459,7 +510,7 @@ int main(int argc, char **argv)
                 failed = true;
                 continue;
             }
-            if (may_write(path)) {
+            if (may_write(path, in)) {
                 failed |= doBuild ? !acf_build(in, path, huffman)
                                   : !acf_extract(in, path);
                 ++done;
@@ -497,6 +548,11 @@ int main(int argc, char **argv)
         ++done;
     }
 
+    for (size_t i = 0; i < claimCount; ++i) {
+        free(claims[i].out);
+        free(claims[i].in);
+    }
+    free(claims);
     for (size_t i = 0; i < count; ++i) {
         free(inputs[i]);
     }
