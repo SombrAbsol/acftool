@@ -84,5 +84,3 @@ The archives of the game are rebuilt identically by encoding them as follows:
   * The subtree of a waiting node fits if its need is at most its slack, and if every other waiting node still gets its pair in time once the subtree is laid out. For this, the waiting nodes are ranked from 1 by slack, then by index, the candidate coming first on ties, and the candidate's need must be at most each other node's slack minus its rank plus 1
   * If subtrees fit, the one whose node has the highest index is laid out at once, breadth first: each of its nodes takes the next free pair, and its children with children are queued left first
   * Otherwise, the waiting node with the least slack takes the next free pair (the one with the largest need on ties, then the lowest index), and its children with children start waiting
-
-acftool implements it in [`src/huffman.c`](/src/huffman.c).
