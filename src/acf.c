@@ -53,6 +53,35 @@ static size_t pad4(size_t n)
 }
 
 /*
+ * Check whether data is a Guardian Signs MES text file, as ra3mes reads it:
+ * its size, a string count, then offsets to null-terminated strings in order.
+ */
+static bool is_mes(const uint8_t *data, size_t size)
+{
+    if (size < 8 || get_u32(data) != size) {
+        return false;
+    }
+
+    // the offset table must fit within the file
+    uint32_t count = get_u32(data + 4);
+    if (count > (size - 8) / 4) {
+        return false;
+    }
+    size_t tableEnd = 8 + (size_t)count * 4;
+
+    // strings follow the table in order, each null-terminated before the next
+    for (uint32_t i = 0; i < count; ++i) {
+        size_t off = get_u32(data + 8 + (size_t)i * 4);
+        size_t end = i + 1 < count ? get_u32(data + 12 + (size_t)i * 4) : size;
+        if (off < tableEnd || end <= off || end > size
+            || !memchr(data + off, 0, end - off)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+/*
  * Derive a file extension from the leading bytes of data, or "bin".
  */
 static void get_extension(const uint8_t *data, size_t size, char ext[5])
@@ -60,6 +89,12 @@ static void get_extension(const uint8_t *data, size_t size, char ext[5])
     // known Nintendo container magic strings whose bytes appear reversed
     static const char *const reversed[]
         = { "RGCN", "RLCN", "RECN", "RNAN", "RCSN", "RTFN" };
+
+    // MES text files have no magic string, but a recognizable structure
+    if (is_mes(data, size)) {
+        memcpy(ext, "mes", 4);
+        return;
+    }
 
     // stop at the first non-alphanumeric byte
     size_t n = 0;
