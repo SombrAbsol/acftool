@@ -1,5 +1,5 @@
 /*
- * Filelist handler.
+ * filelist.json reader and writer.
  *
  * SPDX-FileCopyrightText: 2026 SombrAbsol
  *
@@ -22,17 +22,25 @@ typedef struct {
 } FileState;
 
 /*
- * Parse a flat JSON object. Entry names point into '*outText', which must be
- * freed along with '*outEntries'.
+ * Parse a flat JSON object, its optional "signature" and "huffman" keys landing
+ * in '*outSignature' and '*outHuffman', NULL and false if absent. Names point
+ * into '*outText', to be freed.
  */
 bool filelist_read(const char *path,
     char **outText,
+    const char **outSignature,
+    bool *outHuffman,
     FileState **outEntries,
     uint32_t *outCount);
 
 /*
- * Write a flat JSON object, one entry per line.
+ * Write a flat JSON object, one entry per line, starting with the "signature"
+ * key if 'signature' is not NULL, then the "huffman" key if either is set.
  */
-bool filelist_write(const char *path, const FileState *entries, uint32_t count);
+bool filelist_write(const char *path,
+    const char *signature,
+    bool huffman,
+    const FileState *entries,
+    uint32_t count);
 
 #endif /* FILELIST_H */

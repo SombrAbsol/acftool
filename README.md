@@ -10,7 +10,7 @@ SPDX-License-Identifier: MIT
 
 ACF archive utility for *Pokémon Ranger: Guardian Signs*. Based on [a fork of acfdump](https://github.com/SombrAbsol/acfdump), an ACF extraction tool originally written by Barubary in Java and ported here to C.
 
-ACF archives are used in *Pokémon Ranger: Guardian Signs* data. This tool allows you to extract the files contained in ACF archives, automatically handling decompression when needed, and to rebuild these archives. You can [download the latest build](#download) or [build the program from source](#building).
+ACF archives are used in *Pokémon Ranger: Guardian Signs* data. This tool allows you to extract the files contained in ACF archives, automatically handling decompression when needed, and to rebuild these archives, including the Huffman-compressed ones (ACZ). You can [download the latest build](#download) or [build the program from source](#building).
 
 For more information about the ACF format, see [the documentation](/docs/acf.md).
 
@@ -32,16 +32,21 @@ To get the ACF archives, Windows users can run [TinkeDSi](https://github.com/R-Y
 3. Press the `Extract Everything` button and choose where to save your files
 4. Once the process is complete, go to the `Fat Tools` tab, and fill in the first three fields with the requested files you just extracted (`fat_data.bin`, `fnt.bin` and `fat.bin`) and the fourth with the value from the previous `FAT Files Address` field
 5. Press the `Extract FAT Data!` button and choose where to save your files
-6. Go to your output directory. ACF archives are located in the `data` directory
+6. Go to your output directory. ACF archives are located in the `data` directory, and the map archives in its `map` (Japanese release) or `mapz` (other releases) directory
 
 ### Running acftool
 > [!IMPORTANT]
 > acftool is a command-line program and must be run in a terminal.
 
-* To extract the files of an ACF archive, run `acftool <in.acf>`
+#### Extracting archives
+* To extract the files of an ACF archive, run `acftool <in.acf>`, or `acftool <in.acz>` for a Huffman-compressed one
 * To extract the files of every ACF archive in a directory, run `acftool <indir>`
 * To handle several archives or directories at once, list them, for instance `acftool a.acf b.acf` or `acftool *.acf`. Wildcards such as `*` and `?` also work on Windows
-* To build an ACF archive, run `acftool <indir>`, where `<indir>` contains a `filelist.json` file listing the files and their state (null: set file entry as unused; false: do not compress; true: compress), for example:
+
+The files of an archive are extracted, along with a `filelist.json` file listing them, to a directory with the same name as the archive, without its extension.
+
+#### Building archives
+To build an ACF archive, run `acftool <indir>`, where `<indir>` contains a `filelist.json` file listing the files and their state (null: set file entry as unused; false: do not compress; true: compress), for example:
 ```json
 {
   "0000.RTCA": false,
@@ -52,13 +57,19 @@ To get the ACF archives, Windows users can run [TinkeDSi](https://github.com/R-Y
 }
 ```
 
-The files of an archive are extracted, along with the `filelist.json` file listing them, to a directory with the same name as the archive, without its extension. A directory is built into an archive with the same name, followed by the `.acf` extension. However, you can optionally specify the output directory or archive of a single input with `-o` or `--output`, or a directory to write the outputs in with `--output-dir`, for instance:
+The directory is built into an archive with the same name, followed by the `.acf` extension. A directory holding a `filelist.json` file is built by default. To extract the ACF archives it contains instead, run `acftool -x <indir>` or `acftool --extract <indir>`.
+
+For [map archives](/docs/acf.md#map-archives), `filelist.json` starts with a `"signature"` and a `"huffman"` key, which must be kept: a directory extracted from an `.acz` file is built back into one, unless `"huffman"` is set to `false`.
+
+* To build a Huffman-compressed archive from any directory, run `acftool -z <indir>` or `acftool --huffman <indir>`
+* To compress an existing archive, run `acftool -z <in.acf>`
+
+#### Outputs
+By default, the outputs are written next to their input. However, you can optionally specify the output directory or archive of a single input with `-o` or `--output`, or a directory to write the outputs in with `--output-dir`, for instance:
 * `acftool in.acf -o outdir` will extract the files to `outdir`
 * `acftool indir -o out.acf` will build the archive `out.acf`
 * `acftool indir --output-dir=outdir`, `indir` holding ACF archives, will extract them to directories in `outdir`, created if missing
 * `acftool *.acf --output-dir=outdir` will extract each archive to a directory in `outdir`, created if missing
-
-A directory holding a `filelist.json` file is built into an archive by default. To extract the ACF archives it contains instead, run `acftool -x <indir>` or `acftool --extract <indir>`.
 
 If an output already exists, you will be asked whether to replace it. Run `acftool -y <in>` or `acftool --yes <in>` (with `<in>` being an input archive or directory) to replace existing outputs without asking.
 
@@ -82,7 +93,7 @@ Run `acftool -h` or `acftool --help` to list all the options.
 > If you need to rebuild the program, run `make clean` or delete the `build` directory.
 
 ## TODO
-* Add ACZ support + documentation
+* The extraction process now supports ACF/ACZ map archives: what to do with the extracted files to ensure full support?
 
 ## Credits
 * acftool by [SombrAbsol](https://github.com/SombrAbsol)

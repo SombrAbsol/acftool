@@ -1,5 +1,5 @@
 /*
- * Filesystem and platform helpers.
+ * File, path and console helpers.
  *
  * SPDX-FileCopyrightText: 2026 SombrAbsol
  *
@@ -89,8 +89,8 @@ FILE *xfopen(const char *path, const char *mode)
 }
 
 /*
- * Read an entire file into memory. The buffer is null-terminated, the
- * terminator is not counted in 'outSize'.
+ * Read a whole file, null-terminated beyond its size, stored in '*outSize' if
+ * not NULL. Return NULL on failure after printing the reason.
  */
 uint8_t *read_file(const char *path, size_t *outSize)
 {
@@ -111,20 +111,16 @@ uint8_t *read_file(const char *path, size_t *outSize)
     // guard against truncation on 32-bit platforms, then seek back to the start
     if (sz < 0 || (unsigned long long)sz >= SIZE_MAX
         || fseek(f, 0, SEEK_SET) != 0) {
-        fprintf(stderr, "%s: invalid file size for '%s'\n", programName, path);
+        fprintf(stderr, "%s: cannot read '%s'\n", programName, path);
         goto done;
     }
 
     size_t size = (size_t)sz;
     buf = malloc(size + 1); // +1 for the null terminator
     if (!buf) {
-        fprintf(stderr,
-            "%s: memory allocation failed (%zu bytes)\n",
-            programName,
-            size);
+        fprintf(stderr, "%s: memory allocation failed\n", programName);
     } else if (fread(buf, 1, size, f) != size) {
-        fprintf(
-            stderr, "%s: failed to read entire file '%s'\n", programName, path);
+        fprintf(stderr, "%s: cannot read '%s'\n", programName, path);
         free(buf);
         buf = NULL;
     } else {
@@ -140,13 +136,14 @@ done:
 }
 
 /*
- * Write bytes to a file, creating or truncating it as needed.
+ * Write bytes to a file, creating or truncating it as needed. Return false on
+ * failure after printing the reason.
  */
 bool write_file(const char *path, const uint8_t *data, size_t size)
 {
     FILE *f = xfopen(path, "wb");
     if (!f) {
-        fprintf(stderr, "%s: cannot open '%s'\n", programName, path);
+        fprintf(stderr, "%s: cannot create '%s'\n", programName, path);
         return false;
     }
 

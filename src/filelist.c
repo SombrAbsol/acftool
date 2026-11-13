@@ -1,5 +1,5 @@
 /*
- * Filelist handler.
+ * filelist.json reader and writer.
  *
  * SPDX-FileCopyrightText: 2026 SombrAbsol
  *
@@ -27,11 +27,34 @@ static char *skip_ws(char *p)
 }
 
 /*
- * Parse a flat JSON object. Entry names point into '*outText', which must be
- * freed along with '*outEntries'.
+ * Unescape in place the string starting after the opening quote at 'p'. Return
+ * the position after its closing quote, or NULL if it is unterminated.
+ */
+static char *read_string(char *p)
+{
+    char *d = p;
+    while (*p && *p != '"') {
+        if (*p == '\\' && p[1]) {
+            ++p; // keep the escaped character as-is
+        }
+        *d++ = *p++;
+    }
+    if (!*p) {
+        return NULL;
+    }
+    *d = '\0';
+    return p + 1;
+}
+
+/*
+ * Parse a flat JSON object, its optional "signature" and "huffman" keys landing
+ * in '*outSignature' and '*outHuffman', NULL and false if absent. Names point
+ * into '*outText', to be freed.
  */
 bool filelist_read(const char *path,
     char **outText,
+    const char **outSignature,
+    bool *outHuffman,
     FileState **outEntries,
     uint32_t *outCount)
 {
@@ -43,6 +66,8 @@ bool filelist_read(const char *path,
     FileState *entries = NULL;
     uint32_t capacity = 0; // array capacity; doubled on overflow
     uint32_t count = 0;
+    *outSignature = NULL;
+    *outHuffman = false;
 
     char *p = skip_ws(text);
     if (*p != '{') {
@@ -64,21 +89,11 @@ bool filelist_read(const char *path,
             goto error;
         }
 
-        // unescape the key in place, up to the closing quote
-        char *name = ++p;
-        char *d = name;
-        while (*p && *p != '"') {
-            if (*p == '\\' && p[1]) {
-                ++p; // keep the escaped character as-is
-            }
-            *d++ = *p++;
-        }
-        if (!*p) {
+        char *name = p + 1;
+        if (!(p = read_string(name))) {
             fprintf(stderr, "%s: unterminated string key\n", programName);
             goto error;
         }
-        ++p;
-        *d = '\0';
 
         p = skip_ws(p);
         if (*p != ':') {
@@ -87,8 +102,17 @@ bool filelist_read(const char *path,
         }
         p = skip_ws(p + 1);
 
-        int state;
-        if (strncmp(p, "null", 4) == 0) {
+        // the signature of an archive other than ACF is a string
+        bool isSignature = !strcmp(name, "signature") && *p == '"';
+        bool isHuffman = !strcmp(name, "huffman");
+        int state = 0;
+        if (isSignature) {
+            *outSignature = p + 1;
+            if (!(p = read_string(p + 1))) {
+                fprintf(stderr, "%s: unterminated signature\n", programName);
+                goto error;
+            }
+        } else if (strncmp(p, "null", 4) == 0) {
             state = -1;
             p += 4;
         } else if (strncmp(p, "false", 5) == 0) {
@@ -104,19 +128,23 @@ bool filelist_read(const char *path,
             goto error;
         }
 
-        if (count == capacity) {
-            capacity = capacity ? capacity * 2 : 16;
-            FileState *tmp = realloc(entries, capacity * sizeof(*entries));
-            if (!tmp) {
-                fprintf(stderr, "%s: memory allocation failed\n", programName);
-                goto error;
+        if (isHuffman) {
+            *outHuffman = state == 1;
+        } else if (!isSignature) {
+            if (count == capacity) {
+                capacity = capacity ? capacity * 2 : 16;
+                FileState *tmp = realloc(entries, capacity * sizeof(*entries));
+                if (!tmp) {
+                    fprintf(
+                        stderr, "%s: memory allocation failed\n", programName);
+                    goto error;
+                }
+                entries = tmp;
             }
-            entries = tmp;
+            entries[count].name = name;
+            entries[count].state = state;
+            ++count;
         }
-
-        entries[count].name = name;
-        entries[count].state = state;
-        ++count;
 
         p = skip_ws(p);
         if (*p == ',') {
@@ -148,9 +176,14 @@ error:
 }
 
 /*
- * Write a flat JSON object, one entry per line.
+ * Write a flat JSON object, one entry per line, starting with the "signature"
+ * key if 'signature' is not NULL, then the "huffman" key if either is set.
  */
-bool filelist_write(const char *path, const FileState *entries, uint32_t count)
+bool filelist_write(const char *path,
+    const char *signature,
+    bool huffman,
+    const FileState *entries,
+    uint32_t count)
 {
     static const char *const literals[] = { "null", "false", "true" };
 
@@ -161,6 +194,16 @@ bool filelist_write(const char *path, const FileState *entries, uint32_t count)
     }
 
     fputs("{\n", f);
+    // an MBG0 archive always tells whether it was Huffman-compressed
+    if (signature) {
+        fprintf(f, "  \"signature\": \"%s\",\n", signature);
+    }
+    if (signature || huffman) {
+        fprintf(f,
+            "  \"huffman\": %s%s\n",
+            huffman ? "true" : "false",
+            count ? "," : "");
+    }
     for (uint32_t i = 0; i < count; ++i) {
         fputs("  \"", f);
         for (const char *s = entries[i].name; *s; ++s) {
