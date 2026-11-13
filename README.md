@@ -38,14 +38,10 @@ To get the ACF archives, Windows users can run [TinkeDSi](https://github.com/R-Y
 > [!IMPORTANT]
 > acftool is a command-line program and must be run in a terminal.
 
-#### ACF extraction
-* To extract files from an ACF archive, run `acftool -x <in.acf>` or `acftool --extract <in.acf>`
-* To extract files from every ACF archives in a directory, run `acftool -x <indir>` or `acftool --extract <indir>`
-
-The output files will be located in a directory with the same name as the input ACF archive.
-
-#### ACF building
-To build an ACF archive, run `acftool -b <indir>` or `acftool --build <indir>`. Please note that the target directory must contain a `filelist.json` file listing the files and their state (null: set file entry as unused; false: do not compress; true: compress), for example:
+* To extract the files of an ACF archive, run `acftool <in.acf>`
+* To extract the files of every ACF archive in a directory, run `acftool <indir>`
+* To handle several archives or directories at once, list them, for instance `acftool a.acf b.acf` or `acftool *.acf`. Wildcards such as `*` and `?` also work on Windows
+* To build an ACF archive, run `acftool <indir>`, where `<indir>` contains a `filelist.json` file listing the files and their state (null: set file entry as unused; false: do not compress; true: compress), for example:
 ```json
 {
   "0000.RTCA": false,
@@ -55,6 +51,18 @@ To build an ACF archive, run `acftool -b <indir>` or `acftool --build <indir>`. 
   "0004.CANR": true
 }
 ```
+
+The files of an archive are extracted, along with the `filelist.json` file listing them, to a directory with the same name as the archive, without its extension. A directory is built into an archive with the same name, followed by the `.acf` extension. However, you can optionally specify the output directory or archive of a single input with `-o` or `--output`, or a directory to write the outputs in with `--output-dir`, for instance:
+* `acftool in.acf -o outdir` will extract the files to `outdir`
+* `acftool indir -o out.acf` will build the archive `out.acf`
+* `acftool indir --output-dir=outdir`, `indir` holding ACF archives, will extract them to directories in `outdir`, created if missing
+* `acftool *.acf --output-dir=outdir` will extract each archive to a directory in `outdir`, created if missing
+
+A directory holding a `filelist.json` file is built into an archive by default. To extract the ACF archives it contains instead, run `acftool -x <indir>` or `acftool --extract <indir>`.
+
+If an output already exists, you will be asked whether to replace it. Run `acftool -y <in>` or `acftool --yes <in>` (with `<in>` being an input archive or directory) to replace existing outputs without asking.
+
+Run `acftool -h` or `acftool --help` to list all the options.
 
 ## Building
 ### Dependencies
@@ -69,7 +77,7 @@ To build an ACF archive, run `acftool -b <indir>` or `acftool --build <indir>`. 
 > [!TIP]
 > Running `make` or `make release` will generate a release build. The downloadable releases are static builds generated using this recipe. If you want to generate a native or a debug build, run `make native` or `make debug`. Native builds are optimized for your specific CPU for better performance but may not be compatible with other systems, while debug builds include debugging symbols that help diagnose issues but run slower.
 >
-> Unix-like operating systems (such as Linux and macOS) can run `sudo make install` to install acftool system-wide, preferably after building a release or native build. Use `sudo make uninstall` to remove it.
+> Unix-like operating systems (such as Linux and macOS) can run `sudo make install` to install acftool system-wide. It installs the program already built, preferably a release or native build, or generates a release build first if there is none. Use `sudo make uninstall` to remove it.
 >
 > If you need to rebuild the program, run `make clean` or delete the `build` directory.
 

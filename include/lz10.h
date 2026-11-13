@@ -9,18 +9,18 @@
 #ifndef LZ10_H
 #define LZ10_H
 
+#include <stddef.h>
 #include <stdint.h>
-#include <stdlib.h>
 
 /*
- * Decompress an LZ10 buffer.
+ * Decompress an LZ10 buffer. Return NULL without printing anything if it is
+ * not a valid LZ10 stream or memory runs out.
  */
 uint8_t *lz10_decompress(const uint8_t *src, size_t srcSize, size_t *outSize);
 
 /*
- * Compress a buffer using an LZ10 encoder. Use a greedy longest-match search
- * within a sliding window of up to 0x1000 bytes, with a maximum match length
- * of 0x12 bytes.
+ * Compress a buffer with LZ10, using a greedy longest-match search over a
+ * 0x1000-byte window. Return NULL on failure after printing the reason.
  */
 uint8_t *lz10_compress(const uint8_t *src, size_t srcSize, size_t *outSize);
 

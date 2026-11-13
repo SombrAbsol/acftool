@@ -11,17 +11,29 @@ BUILD_DIR  := build
 PREFIX     := /usr/local
 
 STATIC ?= 0
-ifeq ($(OS),Darwin)
+ifeq ($(shell uname -s),Darwin)
 ifeq ($(STATIC),1)
 $(error Static linking is not supported on macOS)
 endif
 endif
 
 CFLAGS   := -Wall -Wextra -Werror
-CPPFLAGS := -I $(HEADER_DIR)
+CPPFLAGS := -I $(HEADER_DIR) $(if $(filter 1,$(STATIC)),-DSTATIC_LINK)
 LDFLAGS   = $(if $(filter 1,$(STATIC)),-static)
 LDLIBS   :=
 DEPFLAGS := -MMD -MP
+
+ifeq ($(OS),Windows_NT)
+SANITIZE := -fsanitize=undefined -fsanitize-trap=undefined
+LTO_LD   := $(if $(findstring clang,$(CC)),-fuse-ld=lld)
+else
+SANITIZE := -fsanitize=address,undefined
+LTO_LD   :=
+endif
+
+ifeq ($(STATIC),1)
+SANITIZE := -fsanitize=undefined -fsanitize-trap=undefined
+endif
 
 TARGET_NAME := acftool
 EXTENSION   := $(if $(filter Windows_NT,$(OS)),.exe,)
@@ -35,7 +47,7 @@ DEPS    := $(OBJS:.o=.d)
 
 $(if $(SRCS),,$(error No .c files found in $(SRC_DIR)))
 
-.PHONY: all clean format release native debug install uninstall $(TARGET_NAME)
+.PHONY: all clean format release native debug install uninstall FORCE $(TARGET_NAME)
 
 all: release
 
@@ -46,24 +58,36 @@ $(TARGET): $(OBJS)
 
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c
 	@mkdir -p $(@D)
-	$(CC) $(DEPFLAGS) $(CFLAGS) $(CPPFLAGS) -c $< -o $@
+	$(CC) $(DEPFLAGS) $(CFLAGS) $(CPPFLAGS) $(VERSION_FLAGS) -c $< -o $@
 
 -include $(DEPS)
 
-release: CFLAGS  += -O3 -DNDEBUG
+$(OBJ_DIR)/main.o: FORCE
+$(OBJ_DIR)/main.o: VERSION_FLAGS := -DBUILD_DATE=$(shell date -u +%Y.%m.%d-%H:%M:%S)
+
+$(OBJS): $(OBJ_DIR)/flags
+$(OBJ_DIR)/flags: FORCE
+	@mkdir -p $(@D)
+	@flags='$(CC) $(CFLAGS) $(CPPFLAGS) $(LDFLAGS)'; \
+		[ "$$(cat $@ 2>/dev/null)" = "$$flags" ] || echo "$$flags" > $@
+
+release: CFLAGS   += -O3 -DNDEBUG
+release: CPPFLAGS += -DMAKE_RECIPE=release
 release: $(TARGET)
 	$(STRIP) $(TARGET)
 
-native: CFLAGS  += -O3 -march=native -flto -DNDEBUG
-native: LDFLAGS += -flto
+native: CFLAGS   += -O3 -march=native -flto -DNDEBUG
+native: CPPFLAGS += -DMAKE_RECIPE=native
+native: LDFLAGS  += -flto $(LTO_LD)
 native: $(TARGET)
 	$(STRIP) $(TARGET)
 
-debug: CFLAGS  += -Og -g -fsanitize=address,undefined -fno-omit-frame-pointer
-debug: LDFLAGS += -fsanitize=address,undefined
+debug: CFLAGS   += -Og -g $(SANITIZE) -fno-omit-frame-pointer
+debug: CPPFLAGS += -DMAKE_RECIPE=debug
+debug: LDFLAGS  += $(SANITIZE)
 debug: $(TARGET)
 
-install: all
+install: $(if $(wildcard $(TARGET)),,release)
 	install -d $(DESTDIR)$(PREFIX)/bin
 	install -m 755 $(TARGET) $(DESTDIR)$(PREFIX)/bin/$(TARGET_NAME)$(EXTENSION)
 
