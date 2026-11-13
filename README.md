@@ -65,7 +65,7 @@ For [map archives](/docs/acf.md#map-archives), `filelist.json` starts with a `"s
 * To compress an existing archive, run `acftool -z <in.acf>`
 
 #### Outputs
-You can specify the output directory or archive of a single input with `-o` or `--output`, or a directory to write the outputs in with `--output-dir`, for instance:
+By default, the outputs are written next to their input. However, you can optionally specify the output directory or archive of a single input with `-o` or `--output`, or a directory to write the outputs in with `--output-dir`, for instance:
 * `acftool in.acf -o outdir` will extract the files to `outdir`
 * `acftool indir -o out.acf` will build the archive `out.acf`
 * `acftool indir --output-dir=outdir`, `indir` holding ACF archives, will extract them to directories in `outdir`, created if missing
@@ -93,7 +93,7 @@ Run `acftool -h` or `acftool --help` to list all the options.
 > If you need to rebuild the program, run `make clean` or delete the `build` directory.
 
 ## TODO
-* The extraction process now supports ACF/ACZ map archives: what do to with the extracted files to ensure full support?
+* The extraction process now supports ACF/ACZ map archives: what to do with the extracted files to ensure full support?
 
 ## Credits
 * acftool by [SombrAbsol](https://github.com/SombrAbsol)

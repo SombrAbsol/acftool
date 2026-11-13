@@ -1,5 +1,5 @@
 /*
- * Huffman compression handler.
+ * Huffman compression and decompression.
  *
  * SPDX-FileCopyrightText: 2026 SombrAbsol
  *

@@ -89,7 +89,6 @@ jobs:
             build/${{ env.TARGET }}${{ matrix.extension }}
             LICENSE
             README.md
-
           if-no-files-found: error
           retention-days: 1
 

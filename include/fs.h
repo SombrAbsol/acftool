@@ -1,5 +1,5 @@
 /*
- * Filesystem and platform helpers.
+ * File, path and console helpers.
  *
  * SPDX-FileCopyrightText: 2026 SombrAbsol
  *
@@ -40,13 +40,14 @@ extern const char *programName;
 FILE *xfopen(const char *path, const char *mode);
 
 /*
- * Read an entire file into memory. The buffer is null-terminated, the
- * terminator is not counted in 'outSize'.
+ * Read a whole file, null-terminated beyond its size, stored in '*outSize' if
+ * not NULL. Return NULL on failure after printing the reason.
  */
 uint8_t *read_file(const char *path, size_t *outSize);
 
 /*
- * Write bytes to a file, creating or truncating it as needed.
+ * Write bytes to a file, creating or truncating it as needed. Return false on
+ * failure after printing the reason.
  */
 bool write_file(const char *path, const uint8_t *data, size_t size);
 

@@ -1,5 +1,5 @@
 /*
- * Filelist handler.
+ * filelist.json reader and writer.
  *
  * SPDX-FileCopyrightText: 2026 SombrAbsol
  *
